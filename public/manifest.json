@@ -1,0 +1,15 @@
+{
+  "short_name": "KhoPWA",
+  "name": "Warehouse Management PWA",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a"
+}
