@@ -70,9 +70,9 @@ const TILE_PROVIDERS = {
   }
 };
 
-// Default center GPS anchor
-const DEFAULT_CENTER_LAT = 10.776889;
-const DEFAULT_CENTER_LNG = 106.700806;
+// Default center GPS anchor (Xưởng Lúa Nhựt thực tế)
+const DEFAULT_CENTER_LAT = 15.916332;
+const DEFAULT_CENTER_LNG = 108.260327;
 
 // Helper: Convert meters to latitude offset
 const metersToLat = (meters: number) => meters / 111320;
@@ -117,6 +117,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
   // --- Interactive Warehouse GPS Calibration / Positioning State ---
   const [isCalibrateMode, setIsCalibrateMode] = useState(false);
+  const [isCalibrateMinimized, setIsCalibrateMinimized] = useState(false);
   const [calibratingWarehouseId, setCalibratingWarehouseId] = useState<string>('');
   const [tempGps, setTempGps] = useState<{ lat: number; lng: number } | null>(null);
   const [tempWidth, setTempWidth] = useState<number>(18.0);
@@ -687,115 +688,178 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
             className="glass-card animate-fade-in"
             style={{
               position: 'absolute',
-              top: '12px',
-              left: '12px',
-              right: '12px',
+              top: '8px',
+              left: '8px',
+              right: '8px',
               zIndex: 1050,
-              background: 'rgba(255, 255, 255, 0.96)',
+              background: 'rgba(255, 255, 255, 0.97)',
               border: '2px solid #f59e0b',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-              padding: '14px',
-              borderRadius: '12px'
+              boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+              padding: isCalibrateMinimized ? '8px 12px' : '12px 14px',
+              borderRadius: '12px',
+              maxHeight: '90vh',
+              overflowY: 'auto'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Move size={18} className="text-warning" />
-                <strong style={{ fontSize: '0.95rem', color: '#92400e' }}>
-                  Căn Chỉnh & Đặt Vị Trí Kho Trực Tiếp Lên Bản Đồ
-                </strong>
-              </div>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                style={{ width: 'auto', padding: '4px 10px', fontSize: '0.75rem' }}
-                onClick={() => setIsCalibrateMode(false)}
-              >
-                Đóng
-              </button>
-            </div>
+            {isCalibrateMinimized ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Move size={16} className="text-warning" />
+                  <strong style={{ fontSize: '0.85rem', color: '#92400e' }}>
+                    Kho: {warehouses.find(w => w.id === calibratingWarehouseId)?.code || 'K1'}
+                  </strong>
+                  {tempGps && (
+                    <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                      ({tempGps.lat.toFixed(5)}, {tempGps.lng.toFixed(5)})
+                    </span>
+                  )}
+                </div>
 
-            <p style={{ fontSize: '0.8rem', color: '#78350f', marginBottom: '12px' }}>
-              👉 <strong>Hướng dẫn:</strong> Chọn kho bên dưới ➔ <strong>Chạm / Click vào đúng mái nhà kho</strong> trên ảnh vệ tinh (hoặc kéo ghim) ➔ Bấm <strong>"Lưu Vị Trí Vào Database"</strong>.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'end' }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                  1. Chọn Kho Cần Đặt:
-                </label>
-                <select
-                  value={calibratingWarehouseId}
-                  onChange={(e) => handleSelectCalibratingWh(e.target.value)}
-                  className="form-input"
-                  style={{ fontSize: '0.82rem', padding: '6px 8px' }}
-                >
-                  {warehouses.map(w => (
-                    <option key={w.id} value={w.id}>
-                      {w.code} - {w.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
-                  2. Kích thước (Rộng $\times$ Dài mét):
-                </label>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <input
-                    type="number"
-                    className="form-input"
-                    placeholder="Rộng (m)"
-                    value={tempWidth}
-                    onChange={(e) => setTempWidth(parseFloat(e.target.value) || 1)}
-                    style={{ fontSize: '0.82rem', padding: '6px 8px' }}
-                  />
-                  <input
-                    type="number"
-                    className="form-input"
-                    placeholder="Dài (m)"
-                    value={tempLength}
-                    onChange={(e) => setTempLength(parseFloat(e.target.value) || 1)}
-                    style={{ fontSize: '0.82rem', padding: '6px 8px' }}
-                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: 'auto', padding: '4px 10px', fontSize: '0.75rem', background: '#d97706', borderColor: '#b45309' }}
+                    disabled={isSavingGps || !tempGps}
+                    onClick={handleSaveWarehouseGps}
+                  >
+                    <Save size={13} /> {isSavingGps ? 'Lưu...' : '💾 Lưu'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '4px 8px', fontSize: '0.75rem' }}
+                    onClick={() => setIsCalibrateMinimized(false)}
+                    title="Mở rộng bảng điều khiển"
+                  >
+                    🔽 Mở rộng
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '4px 8px', fontSize: '0.75rem' }}
+                    onClick={() => setIsCalibrateMode(false)}
+                    title="Đóng chế độ căn chỉnh"
+                  >
+                    ✕
+                  </button>
                 </div>
               </div>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Move size={16} className="text-warning" />
+                    <strong style={{ fontSize: '0.9rem', color: '#92400e' }}>
+                      Căn Chỉnh Vị Trí Kho Lên Bản Đồ
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '0.72rem' }}
+                      onClick={() => setIsCalibrateMinimized(true)}
+                      title="Thu gọn để xem bản đồ rộng hơn"
+                    >
+                      🔼 Thu gọn xem bản đồ
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '0.72rem' }}
+                      onClick={() => setIsCalibrateMode(false)}
+                    >
+                      ✕ Đóng
+                    </button>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ flex: 1, padding: '8px 10px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
-                  onClick={() => {
-                    navigator.geolocation.getCurrentPosition(pos => {
-                      setTempGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                      if (mapInstanceRef.current) {
-                        mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 19);
-                      }
-                    });
-                  }}
-                  title="Lấy GPS từ vị trí điện thoại bạn đang đứng"
-                >
-                  <Crosshair size={14} /> GPS máy tôi
-                </button>
+                <p style={{ fontSize: '0.76rem', color: '#78350f', marginBottom: '10px' }}>
+                  👉 Chọn kho bên dưới ➔ <strong>Chạm vào đúng mái nhà kho</strong> trên ảnh vệ tinh ➔ Bấm <strong>"Lưu Vị Trí"</strong>.
+                </p>
 
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  style={{ flex: 1.4, padding: '8px 12px', fontSize: '0.82rem', background: '#d97706', borderColor: '#b45309', whiteSpace: 'nowrap' }}
-                  disabled={isSavingGps || !tempGps}
-                  onClick={handleSaveWarehouseGps}
-                >
-                  <Save size={15} /> {isSavingGps ? 'Đang lưu...' : '💾 Lưu Vị Trí'}
-                </button>
-              </div>
-            </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', alignItems: 'end' }}>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '3px' }}>
+                      1. Chọn Kho Cần Đặt:
+                    </label>
+                    <select
+                      value={calibratingWarehouseId}
+                      onChange={(e) => handleSelectCalibratingWh(e.target.value)}
+                      className="form-input"
+                      style={{ fontSize: '0.8rem', padding: '5px 8px' }}
+                    >
+                      {warehouses.map(w => (
+                        <option key={w.id} value={w.id}>
+                          {w.code} - {w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-            {tempGps && (
-              <div style={{ marginTop: '8px', fontSize: '0.73rem', color: '#92400e' }}>
-                📍 Tọa độ GPS đã ghim: <code>{tempGps.lat.toFixed(6)}, {tempGps.lng.toFixed(6)}</code>
-              </div>
+                  <div>
+                    <label style={{ fontSize: '0.72rem', fontWeight: 700, display: 'block', marginBottom: '3px' }}>
+                      2. Kích thước Rộng × Dài (m):
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="Rộng (m)"
+                        value={tempWidth}
+                        onChange={(e) => setTempWidth(parseFloat(e.target.value) || 1)}
+                        style={{ fontSize: '0.8rem', padding: '5px 6px' }}
+                      />
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="Dài (m)"
+                        value={tempLength}
+                        onChange={(e) => setTempLength(parseFloat(e.target.value) || 1)}
+                        style={{ fontSize: '0.8rem', padding: '5px 6px' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '6px 8px', fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                      onClick={() => {
+                        navigator.geolocation.getCurrentPosition(pos => {
+                          setTempGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                          if (mapInstanceRef.current) {
+                            mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 19);
+                          }
+                        });
+                      }}
+                      title="Lấy GPS từ vị trí điện thoại bạn đang đứng"
+                    >
+                      <Crosshair size={13} /> GPS máy tôi
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ flex: 1.3, padding: '6px 10px', fontSize: '0.78rem', background: '#d97706', borderColor: '#b45309', whiteSpace: 'nowrap' }}
+                      disabled={isSavingGps || !tempGps}
+                      onClick={handleSaveWarehouseGps}
+                    >
+                      <Save size={14} /> {isSavingGps ? 'Đang lưu...' : '💾 Lưu Vị Trí'}
+                    </button>
+                  </div>
+                </div>
+
+                {tempGps && (
+                  <div style={{ marginTop: '6px', fontSize: '0.72rem', color: '#92400e' }}>
+                    📍 Tọa độ GPS đã ghim: <code>{tempGps.lat.toFixed(6)}, {tempGps.lng.toFixed(6)}</code>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
