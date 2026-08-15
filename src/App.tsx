@@ -20,7 +20,8 @@ import {
   Info,
   Printer,
   Grid,
-  PackagePlus
+  PackagePlus,
+  Box
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -682,31 +683,83 @@ function App() {
                   </div>
                 )}
 
-                {/* Quick Actions Card */}
-                <div className="card mb-4">
-                  <div className="card-header">
-                    <h3 className="card-title">⚡ Thao tác nhanh</h3>
+                {/* Quick Actions & Warehouse Capacity Overview Bento Grid */}
+                <div className="row row-cards mb-4">
+                  {/* Warehouse Capacity Utilization Card */}
+                  <div className="col-lg-8">
+                    <div className="card h-100">
+                      <div className="card-header d-flex justify-content-between align-items-center">
+                        <h3 className="card-title">
+                          <MapIcon size={18} className="text-primary me-2" /> Tỷ lệ Sử dụng & Sức chứa Các Kho
+                        </h3>
+                        <span className="badge bg-azure-lt">
+                          {currentLocations.filter(c => c.location_id).length} / {allLocations.length} Ô đã chứa hàng
+                        </span>
+                      </div>
+                      <div className="card-body">
+                        <div className="row g-3">
+                          {warehouses.map(wh => {
+                            const whLocs = allLocations.filter(l => l.warehouse_id === wh.id);
+                            const whOccupied = whLocs.filter(l => currentLocations.some(c => c.location_id === l.id)).length;
+                            const percent = whLocs.length > 0 ? Math.round((whOccupied / whLocs.length) * 100) : 0;
+
+                            return (
+                              <div key={wh.id} className="col-sm-6">
+                                <div className="p-3 bg-light rounded border">
+                                  <div className="d-flex justify-content-between align-items-center mb-2">
+                                    <div className="d-flex align-items-center gap-2">
+                                      <span
+                                        style={{
+                                          width: '10px',
+                                          height: '10px',
+                                          borderRadius: '50%',
+                                          backgroundColor: wh.color
+                                        }}
+                                      />
+                                      <strong style={{ color: '#0f172a' }}>{wh.code} - {wh.name}</strong>
+                                    </div>
+                                    <span className="small font-weight-bold" style={{ color: wh.color }}>
+                                      {whOccupied}/{whLocs.length} ô ({percent}%)
+                                    </span>
+                                  </div>
+                                  <div className="progress progress-sm" style={{ height: '6px' }}>
+                                    <div
+                                      className="progress-bar"
+                                      style={{
+                                        width: `${percent}%`,
+                                        backgroundColor: wh.color
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="card-body">
-                    <div className="row g-2">
-                      <div className="col-6 col-md-3">
-                        <button className="btn btn-primary w-100 py-2" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
-                          <QrCode size={16} className="me-1" /> Di chuyển sản phẩm
-                        </button>
+
+                  {/* Quick Action Hub */}
+                  <div className="col-lg-4">
+                    <div className="card h-100">
+                      <div className="card-header">
+                        <h3 className="card-title">
+                          <Sparkles size={18} className="text-primary me-2" /> Trung tâm Thao tác
+                        </h3>
                       </div>
-                      <div className="col-6 col-md-3">
-                        <button className="btn btn-outline-primary w-100 py-2" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
-                          <PackagePlus size={16} className="me-1" /> Nhập Lô / SP Mới
+                      <div className="card-body d-flex flex-column justify-content-between gap-2">
+                        <button className="btn btn-primary w-100 py-2 justify-content-start" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
+                          <QrCode size={18} className="me-2" /> Di chuyển & Nhập xuất Kho
                         </button>
-                      </div>
-                      <div className="col-6 col-md-3">
-                        <button className="btn btn-outline-secondary w-100 py-2" onClick={() => setActiveTab('maps')}>
-                          <MapIcon size={16} className="me-1" /> Bản đồ Vệ tinh
+                        <button className="btn btn-outline-primary w-100 py-2 justify-content-start" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
+                          <PackagePlus size={18} className="me-2" /> Nhập Sản Phẩm / Lô Mới
                         </button>
-                      </div>
-                      <div className="col-6 col-md-3">
-                        <button className="btn btn-outline-secondary w-100 py-2" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
-                          <Printer size={16} className="me-1" /> In mã QR dán ô
+                        <button className="btn btn-outline-secondary w-100 py-2 justify-content-start" onClick={() => setActiveTab('maps')}>
+                          <MapIcon size={18} className="me-2" /> Bản đồ Vệ tinh Quảng Nam
+                        </button>
+                        <button className="btn btn-outline-secondary w-100 py-2 justify-content-start" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
+                          <Printer size={18} className="me-2" /> In Mã QR Dán Ô Kệ
                         </button>
                       </div>
                     </div>
@@ -715,11 +768,15 @@ function App() {
 
                 {/* Realtime Inventory Snapshot Table */}
                 <div className="card">
-                  <div className="card-header d-flex justify-content-between align-items-center">
-                    <h3 className="card-title">📦 Danh mục & Vị trí Lưu kho Hiện tại ({products.length} sản phẩm)</h3>
-                    <button className="btn btn-outline-secondary btn-sm" onClick={() => setActiveTab('search')}>
-                      <Search size={14} className="me-1" /> Tìm kiếm chi tiết
-                    </button>
+                  <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h3 className="card-title">
+                      <FileText size={18} className="text-primary me-2" /> Danh mục & Vị trí Lưu kho ({products.length} sản phẩm)
+                    </h3>
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setActiveTab('search')}>
+                        <Search size={14} className="me-1" /> Tra cứu chi tiết
+                      </button>
+                    </div>
                   </div>
                   <div className="table-responsive">
                     <table className="table table-vcenter card-table table-striped table-hover">
@@ -741,7 +798,7 @@ function App() {
                             </td>
                           </tr>
                         ) : (
-                          products.slice(0, 10).map((p) => {
+                          products.slice(0, 15).map((p) => {
                             const curBinding = currentLocations.find(c => c.product_id === p.id);
                             const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
                             const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;
@@ -818,11 +875,40 @@ function App() {
 
             <main className="page-body">
               <div className="container-xl">
+                {/* Visual Movement Step Progress Bar */}
+                <div className="card card-sm mb-3">
+                  <div className="card-body p-2">
+                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                      <span className={`badge ${movementStep === 'idle' ? 'bg-primary' : 'bg-success-lt'} p-2`}>
+                        1. Chọn sản phẩm
+                      </span>
+                      <ArrowRight size={13} className="text-muted" />
+                      <span className={`badge ${movementStep === 'product_selected' ? 'bg-primary' : movementStep === 'idle' ? 'bg-secondary-lt text-muted' : 'bg-success-lt'} p-2`}>
+                        2. Xác nhận SP & Vị trí
+                      </span>
+                      <ArrowRight size={13} className="text-muted" />
+                      <span className={`badge ${movementStep === 'moving' ? 'bg-primary' : movementStep === 'destination_scanned' || movementStep === 'completed' ? 'bg-success-lt' : 'bg-secondary-lt text-muted'} p-2`}>
+                        3. Di chuyển & Quét QR đích
+                      </span>
+                      <ArrowRight size={13} className="text-muted" />
+                      <span className={`badge ${movementStep === 'destination_scanned' ? 'bg-primary' : movementStep === 'completed' ? 'bg-success-lt' : 'bg-secondary-lt text-muted'} p-2`}>
+                        4. Kiểm tra & Lưu GPS
+                      </span>
+                      <ArrowRight size={13} className="text-muted" />
+                      <span className={`badge ${movementStep === 'completed' ? 'bg-success' : 'bg-secondary-lt text-muted'} p-2`}>
+                        5. Hoàn tất
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Step 1: Multi-Modal Product Identification */}
                 {movementStep === 'idle' && (
                   <div className="card">
                     <div className="card-header">
-                      <h3 className="card-title">📦 Bước 1 & 2: Chọn / Quét Sản Phẩm Cần Di Chuyển</h3>
+                      <h3 className="card-title">
+                        <Box size={18} className="text-primary me-2" /> Chọn hoặc Quét Sản Phẩm Cần Di Chuyển
+                      </h3>
                     </div>
                     <div className="card-body">
                       <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
@@ -836,28 +922,28 @@ function App() {
                           className={`btn ${productInputMode === 'manual' ? 'btn-primary' : 'btn-outline-secondary'}`}
                           onClick={() => { stopProductBarcodeScanner(); setProductInputMode('manual'); }}
                         >
-                          ⌨️ Điền mã tay
+                          <FileText size={15} className="me-1" /> Điền mã tay
                         </button>
                         <button
                           type="button"
                           className={`btn ${productInputMode === 'ocr' ? 'btn-primary' : 'btn-outline-secondary'}`}
                           onClick={() => { stopProductBarcodeScanner(); setProductInputMode('ocr'); }}
                         >
-                          📷 AI OCR Chụp tem
+                          <Camera size={15} className="me-1" /> AI OCR Chụp tem
                         </button>
                         <button
                           type="button"
                           className={`btn ${productInputMode === 'barcode' ? 'btn-primary' : 'btn-outline-secondary'}`}
                           onClick={() => { setProductInputMode('barcode'); }}
                         >
-                          🔍 Quét Barcode/QR
+                          <QrCode size={15} className="me-1" /> Quét Barcode/QR
                         </button>
                         <button
                           type="button"
                           className={`btn ${productInputMode === 'catalog' ? 'btn-primary' : 'btn-outline-secondary'}`}
                           onClick={() => { stopProductBarcodeScanner(); setProductInputMode('catalog'); }}
                         >
-                          ⚡ Danh mục sẵn có
+                          <Grid size={15} className="me-1" /> Danh mục có sẵn
                         </button>
                         <button
                           type="button"
@@ -867,7 +953,7 @@ function App() {
                             setIsImportModalOpen(true);
                           }}
                         >
-                          <PackagePlus size={15} className="me-1" /> ➕ Nhập Lô / SP Mới
+                          <PackagePlus size={15} className="me-1" /> Nhập Lô / SP Mới
                         </button>
                       </div>
 
