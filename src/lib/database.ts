@@ -304,26 +304,72 @@ export const getWarehouseGPSConfig = async (): Promise<{ lat: number; lng: numbe
   return DEFAULT_GPS;
 };
 
-export const saveWarehouseGPSConfig = async (lat: number, lng: number, scale = 1): Promise<boolean> => {
-  const config = { lat, lng, scale, updated_at: new Date().toISOString() };
-  localStorage.setItem('kho_gps_coords', JSON.stringify(config));
+// --- Per-Warehouse Geometries Configuration ---
+export interface WarehouseGeometryConfig {
+  centerLat: number;
+  centerLng: number;
+  width: number;  // in degrees (approx 50m = 0.0005)
+  height: number; // in degrees (approx 40m = 0.0004)
+  color?: string;
+}
+
+export type AllWarehousesGeometries = Record<string, WarehouseGeometryConfig>;
+
+export const getWarehousesGeometriesConfig = async (): Promise<AllWarehousesGeometries> => {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('warehouse_settings')
+        .select('value')
+        .eq('id', 'warehouses_individual_geometries')
+        .single();
+      
+      if (!error && data && data.value) {
+        localStorage.setItem('kho_individual_geometries', JSON.stringify(data.value));
+        return data.value;
+      }
+    } catch (e) {
+      console.warn('Không thể tải cấu hình từng kho từ Supabase, dùng cache:', e);
+    }
+  }
+
+  const cached = localStorage.getItem('kho_individual_geometries');
+  if (cached) {
+    try {
+      return JSON.parse(cached);
+    } catch (e) {}
+  }
+
+  return {};
+};
+
+export const saveWarehouseGeometryConfig = async (
+  warehouseId: string,
+  geom: WarehouseGeometryConfig
+): Promise<boolean> => {
+  const current = await getWarehousesGeometriesConfig();
+  const updated: AllWarehousesGeometries = {
+    ...current,
+    [warehouseId]: geom
+  };
+
+  localStorage.setItem('kho_individual_geometries', JSON.stringify(updated));
 
   if (supabaseClient) {
     try {
       const { error } = await supabaseClient
         .from('warehouse_settings')
         .upsert({
-          id: 'warehouse_map_gps',
-          value: config,
-          updated_at: config.updated_at
+          id: 'warehouses_individual_geometries',
+          value: updated,
+          updated_at: new Date().toISOString()
         });
 
       if (error) throw error;
-      console.log('⚡ Tọa độ GPS kho đã được cập nhật ngay lập tức lên Supabase!');
+      console.log(`⚡ Đã cập nhật tọa độ & kích thước riêng cho Kho ${warehouseId} lên Supabase!`);
       return true;
     } catch (e) {
-      console.warn('Lưu GPS lên Supabase thất bại, xếp hàng đồng bộ offline:', e);
-      queueOfflineAction('create_warehouse', { action: 'update_gps', config });
+      console.warn(`Lưu tọa độ kho ${warehouseId} lên Supabase thất bại:`, e);
       return false;
     }
   }

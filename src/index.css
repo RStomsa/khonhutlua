@@ -1077,13 +1077,99 @@ body {
   margin-top: 2px;
 }
 
-/* GPS Calibration Bar */
-.gps-calibration-bar {
-  padding: 14px 18px;
+/* Per-Warehouse Calibration Drawer */
+.per-warehouse-calib-drawer {
+  padding: 16px 20px;
   margin-bottom: 4px;
   background: #ffffff;
   border: 1.5px solid var(--color-primary);
-  box-shadow: 0 4px 20px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.12);
+}
+
+.calib-wh-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+}
+
+.calib-wh-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.calib-wh-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.calib-wh-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid #cbd5e1;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.calib-wh-chip:hover {
+  transform: translateY(-1px);
+}
+
+.calib-wh-chip.active {
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  font-weight: 800;
+}
+
+/* Draggable Center Handle Marker */
+.custom-drag-marker {
+  background: transparent;
+  border: none;
+}
+
+.wh-drag-handle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.9);
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(37, 99, 235, 0.7);
+  cursor: grab;
+  animation: pulseEdit 1.5s infinite;
+}
+
+.wh-drag-handle:active {
+  cursor: grabbing;
+}
+
+@keyframes pulseEdit {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.drag-icon-center {
+  color: #ffffff;
+  font-weight: 900;
+  font-size: 0.8rem;
+}
+
+.drag-wh-tag {
+  letter-spacing: -0.5px;
 }
 
 .calib-header {
@@ -1136,6 +1222,12 @@ body {
   color: #0f172a;
   font-size: 0.85rem;
   outline: none;
+}
+
+.input-field input[type="range"] {
+  padding: 0;
+  height: 8px;
+  cursor: pointer;
 }
 
 .input-field input:focus, .scale-select:focus {

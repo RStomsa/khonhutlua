@@ -12,19 +12,21 @@ import {
   ZoomOut,
   Navigation,
   Crosshair,
-  Sliders,
   Check,
   RotateCcw,
-  Move
+  Edit3
 } from 'lucide-react';
 import type {
   Warehouse,
   WarehouseLocation,
   ProductCurrentLocation,
-  ProductLocationMovement
+  ProductLocationMovement,
+  AllWarehousesGeometries,
+  WarehouseGeometryConfig
 } from '../lib/database';
 import {
-  saveWarehouseGPSConfig,
+  getWarehousesGeometriesConfig,
+  saveWarehouseGeometryConfig,
   getWarehouseGPSConfig
 } from '../lib/database';
 
@@ -73,51 +75,41 @@ const TILE_PROVIDERS = {
 const DEFAULT_LAT = 10.7932;
 const DEFAULT_LNG = 106.6542;
 
-// Offset relative layout for 4 standard warehouses
-const WAREHOUSE_OFFSETS: Record<string, {
+// Standard warehouse default presets
+const DEFAULT_WAREHOUSE_OFFSETS: Record<string, {
   latOffset: number;
   lngOffset: number;
   width: number;
   height: number;
   color: string;
-  fillColor: string;
-  tagColor: string;
 }> = {
   K1: {
     latOffset: 0.00035,
     lngOffset: -0.00045,
     width: 0.00060,
     height: 0.00040,
-    color: '#2563eb',
-    fillColor: 'rgba(37, 99, 235, 0.35)',
-    tagColor: '#2563eb'
+    color: '#2563eb'
   },
   K2: {
     latOffset: 0.00035,
     lngOffset: 0.00045,
     width: 0.00060,
     height: 0.00040,
-    color: '#db2777',
-    fillColor: 'rgba(219, 39, 119, 0.35)',
-    tagColor: '#db2777'
+    color: '#db2777'
   },
   K3: {
     latOffset: -0.00035,
     lngOffset: -0.00045,
     width: 0.00060,
     height: 0.00040,
-    color: '#dc2626',
-    fillColor: 'rgba(220, 38, 38, 0.35)',
-    tagColor: '#dc2626'
+    color: '#dc2626'
   },
   K4: {
     latOffset: -0.00035,
     lngOffset: 0.00045,
     width: 0.00060,
     height: 0.00040,
-    color: '#059669',
-    fillColor: 'rgba(5, 150, 105, 0.35)',
-    tagColor: '#059669'
+    color: '#059669'
   }
 };
 
@@ -136,12 +128,28 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   const layersGroupRef = useRef<L.LayerGroup | null>(null);
   const racksGroupRef = useRef<L.LayerGroup | null>(null);
   const userGpsGroupRef = useRef<L.LayerGroup | null>(null);
+  const editMarkerGroupRef = useRef<L.LayerGroup | null>(null);
 
-  // GPS Coordinates State
+  // Global Base Anchor GPS
   const [baseCoords, setBaseCoords] = useState<{ lat: number; lng: number }>({
     lat: DEFAULT_LAT,
     lng: DEFAULT_LNG
   });
+
+  // Individual Per-Warehouse Geometries State
+  const [customGeometries, setCustomGeometries] = useState<AllWarehousesGeometries>({});
+
+  // Currently Selected Warehouse for Editing
+  const [editingWhId, setEditingWhId] = useState<string>('K1');
+  const [isClickToPlaceActive, setIsClickToPlaceActive] = useState<boolean>(false);
+
+  // Editable Form Values for the Selected Warehouse
+  const [editLat, setEditLat] = useState<string>('');
+  const [editLng, setEditLng] = useState<string>('');
+  const [editWidth, setEditWidth] = useState<number>(60);   // in meters (approx)
+  const [editHeight, setEditHeight] = useState<number>(40); // in meters (approx)
+  const [editColor, setEditColor] = useState<string>('#2563eb');
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   // Zoom Tracking for Level of Detail (LOD)
   const [currentZoom, setCurrentZoom] = useState(18);
@@ -154,13 +162,10 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   const [localSearch, setLocalSearch] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // GPS & Calibration Mode
+  // Calibration Drawer Mode
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'success' | 'error'>('idle');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
-  const [customLatInput, setCustomLatInput] = useState(DEFAULT_LAT.toString());
-  const [customLngInput, setCustomLngInput] = useState(DEFAULT_LNG.toString());
-  const [scaleFactor, setScaleFactor] = useState(1);
 
   // Product lookup map
   const productByLocation = useMemo(() => {
@@ -190,46 +195,73 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     return stats;
   }, [warehouses, allLocations, productByLocation]);
 
-  // Warehouse footprint bounds
+  // Compute final effective geometries for each warehouse
   const warehouseGeometries = useMemo(() => {
     const geoms: Record<string, {
       center: [number, number];
       bounds: [[number, number], [number, number]];
+      width: number;
+      height: number;
       color: string;
-      fillColor: string;
-      tagColor: string;
     }> = {};
 
     warehouses.forEach(wh => {
-      const offset = WAREHOUSE_OFFSETS[wh.id] || {
-        latOffset: 0,
-        lngOffset: 0,
-        width: 0.0005,
-        height: 0.0004,
-        color: '#2563eb',
-        fillColor: 'rgba(37, 99, 235, 0.35)',
-        tagColor: '#2563eb'
-      };
+      const custom = customGeometries[wh.id];
+      if (custom) {
+        const halfHeight = custom.height / 2;
+        const halfWidth = custom.width / 2;
+        geoms[wh.id] = {
+          center: [custom.centerLat, custom.centerLng],
+          bounds: [
+            [custom.centerLat - halfHeight, custom.centerLng - halfWidth],
+            [custom.centerLat + halfHeight, custom.centerLng + halfWidth]
+          ],
+          width: custom.width,
+          height: custom.height,
+          color: custom.color || DEFAULT_WAREHOUSE_OFFSETS[wh.id]?.color || '#2563eb'
+        };
+      } else {
+        const offset = DEFAULT_WAREHOUSE_OFFSETS[wh.id] || {
+          latOffset: 0,
+          lngOffset: 0,
+          width: 0.0005,
+          height: 0.0004,
+          color: '#2563eb'
+        };
 
-      const centerLat = baseCoords.lat + (offset.latOffset * scaleFactor);
-      const centerLng = baseCoords.lng + (offset.lngOffset * scaleFactor);
-      const halfHeight = (offset.height * scaleFactor) / 2;
-      const halfWidth = (offset.width * scaleFactor) / 2;
+        const centerLat = baseCoords.lat + offset.latOffset;
+        const centerLng = baseCoords.lng + offset.lngOffset;
+        const halfHeight = offset.height / 2;
+        const halfWidth = offset.width / 2;
 
-      geoms[wh.id] = {
-        center: [centerLat, centerLng],
-        bounds: [
-          [centerLat - halfHeight, centerLng - halfWidth],
-          [centerLat + halfHeight, centerLng + halfWidth]
-        ],
-        color: offset.color,
-        fillColor: offset.fillColor,
-        tagColor: offset.tagColor
-      };
+        geoms[wh.id] = {
+          center: [centerLat, centerLng],
+          bounds: [
+            [centerLat - halfHeight, centerLng - halfWidth],
+            [centerLat + halfHeight, centerLng + halfWidth]
+          ],
+          width: offset.width,
+          height: offset.height,
+          color: offset.color
+        };
+      }
     });
 
     return geoms;
-  }, [warehouses, baseCoords, scaleFactor]);
+  }, [warehouses, customGeometries, baseCoords]);
+
+  // Synchronize edit inputs when editing warehouse selection changes
+  useEffect(() => {
+    if (!editingWhId) return;
+    const geom = warehouseGeometries[editingWhId];
+    if (geom) {
+      setEditLat(geom.center[0].toFixed(6));
+      setEditLng(geom.center[1].toFixed(6));
+      setEditWidth(Math.round(geom.width * 100000));
+      setEditHeight(Math.round(geom.height * 100000));
+      setEditColor(geom.color);
+    }
+  }, [editingWhId, warehouseGeometries]);
 
   // Initialize Map
   useEffect(() => {
@@ -254,30 +286,51 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     layersGroupRef.current = L.layerGroup().addTo(map);
     racksGroupRef.current = L.layerGroup().addTo(map);
     userGpsGroupRef.current = L.layerGroup().addTo(map);
+    editMarkerGroupRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
-    // Track Zoom level for Level of Detail (LOD)
     map.on('zoomend', () => {
       setCurrentZoom(map.getZoom());
     });
 
     // Handle map click during calibration mode
     map.on('click', (e: L.LeafletMouseEvent) => {
-      if (isCalibrating) {
-        setBaseCoords({ lat: e.latlng.lat, lng: e.latlng.lng });
-        setCustomLatInput(e.latlng.lat.toFixed(6));
-        setCustomLngInput(e.latlng.lng.toFixed(6));
+      if (isCalibrating && isClickToPlaceActive && editingWhId) {
+        const newLat = e.latlng.lat;
+        const newLng = e.latlng.lng;
+        setEditLat(newLat.toFixed(6));
+        setEditLng(newLng.toFixed(6));
+
+        setCustomGeometries(prev => {
+          const currentGeom = prev[editingWhId] || {
+            centerLat: newLat,
+            centerLng: newLng,
+            width: (editWidth || 60) / 100000,
+            height: (editHeight || 40) / 100000,
+            color: editColor
+          };
+          return {
+            ...prev,
+            [editingWhId]: {
+              ...currentGeom,
+              centerLat: newLat,
+              centerLng: newLng
+            }
+          };
+        });
+
+        setIsClickToPlaceActive(false);
       }
     });
 
-    // Load initial GPS from database
-    getWarehouseGPSConfig().then(cfg => {
-      setBaseCoords({ lat: cfg.lat, lng: cfg.lng });
-      setCustomLatInput(cfg.lat.toFixed(6));
-      setCustomLngInput(cfg.lng.toFixed(6));
-      setScaleFactor(cfg.scale || 1);
+    // Load initial GPS and Custom Geometries
+    Promise.all([getWarehouseGPSConfig(), getWarehousesGeometriesConfig()]).then(([gps, geoms]) => {
+      setBaseCoords({ lat: gps.lat, lng: gps.lng });
+      if (geoms && Object.keys(geoms).length > 0) {
+        setCustomGeometries(geoms);
+      }
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.setView([cfg.lat, cfg.lng], 18);
+        mapInstanceRef.current.setView([gps.lat, gps.lng], 18);
       }
     });
 
@@ -285,9 +338,9 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, []);
+  }, [isCalibrating, isClickToPlaceActive, editingWhId, editWidth, editHeight, editColor]);
 
-  // Update Tile Layer when layer changes
+  // Update Tile Layer
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
     const provider = TILE_PROVIDERS[activeLayer];
@@ -343,11 +396,19 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
             }).addTo(gpsGroup);
           }
 
-          if (centerWarehouseHere) {
-            setBaseCoords({ lat: userLat, lng: userLng });
-            setCustomLatInput(userLat.toFixed(6));
-            setCustomLngInput(userLng.toFixed(6));
-            saveWarehouseGPSConfig(userLat, userLng, scaleFactor);
+          if (centerWarehouseHere && editingWhId) {
+            setEditLat(userLat.toFixed(6));
+            setEditLng(userLng.toFixed(6));
+            setCustomGeometries(prev => ({
+              ...prev,
+              [editingWhId]: {
+                centerLat: userLat,
+                centerLng: userLng,
+                width: (editWidth || 60) / 100000,
+                height: (editHeight || 40) / 100000,
+                color: editColor
+              }
+            }));
             map.flyTo([userLat, userLng], 19, { duration: 1.2 });
           } else {
             map.flyTo([userLat, userLng], 18, { duration: 1 });
@@ -364,19 +425,19 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   };
 
   // ==========================================================================
-  // LEVEL OF DETAIL (LOD) & CLEAN RENDERING ENGINE
+  // RENDER WAREHOUSE BUILDINGS, RACKS, AND DRAGGABLE EDIT HANDLES
   // ==========================================================================
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layersGroup = layersGroupRef.current;
     const racksGroup = racksGroupRef.current;
-    if (!map || !layersGroup || !racksGroup) return;
+    const editGroup = editMarkerGroupRef.current;
+    if (!map || !layersGroup || !racksGroup || !editGroup) return;
 
     layersGroup.clearLayers();
     racksGroup.clearLayers();
+    editGroup.clearLayers();
 
-    // Determine whether to draw internal racks:
-    // Only draw racks if zoomed in closely (zoom >= 18) OR if a specific warehouse is in Focus Mode
     const shouldDrawRacks = currentZoom >= 18;
 
     warehouses.forEach(wh => {
@@ -385,35 +446,38 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
       const stat = warehouseStats[wh.id] || { total: 0, occupied: 0, percentage: 0 };
       const isFocused = activeWarehouseFocus === wh.id;
+      const isBeingEdited = isCalibrating && editingWhId === wh.id;
       const isDimmed = activeWarehouseFocus !== null && !isFocused;
 
-      // 1. Draw Warehouse Outline Box
+      // 1. Warehouse Building Outline
       const rectangle = L.rectangle(geom.bounds, {
-        color: geom.color,
-        weight: isFocused ? 3.5 : isDimmed ? 1 : 2,
-        fillColor: geom.color,
-        fillOpacity: isFocused ? 0.35 : isDimmed ? 0.08 : 0.2,
-        dashArray: isFocused ? undefined : isDimmed ? '4, 4' : '6, 6',
+        color: isBeingEdited ? '#2563eb' : geom.color,
+        weight: isBeingEdited ? 3.5 : isFocused ? 3.5 : isDimmed ? 1 : 2,
+        fillColor: isBeingEdited ? '#2563eb' : geom.color,
+        fillOpacity: isBeingEdited ? 0.35 : isFocused ? 0.35 : isDimmed ? 0.08 : 0.2,
+        dashArray: isFocused || isBeingEdited ? undefined : isDimmed ? '4, 4' : '6, 6',
         className: 'warehouse-polygon-layer'
       });
 
       rectangle.on('click', () => {
-        if (activeWarehouseFocus === wh.id) {
-          // Toggle off focus mode
-          setActiveWarehouseFocus(null);
-          resetView();
+        if (isCalibrating) {
+          setEditingWhId(wh.id);
         } else {
-          setActiveWarehouseFocus(wh.id);
-          map.flyToBounds(geom.bounds, { padding: [50, 50], duration: 1 });
+          if (activeWarehouseFocus === wh.id) {
+            setActiveWarehouseFocus(null);
+            resetView();
+          } else {
+            setActiveWarehouseFocus(wh.id);
+            map.flyToBounds(geom.bounds, { padding: [50, 50], duration: 1 });
+          }
         }
       });
 
       rectangle.addTo(layersGroup);
 
-      // 2. Draw Clean Warehouse Header Label
-      // When zoomed out, show simple clean summary badge
+      // 2. Clean Warehouse Header Pill
       const labelHtml = `
-        <div class="lod-wh-pill ${isFocused ? 'focus' : ''} ${isDimmed ? 'dimmed' : ''}" style="border-left-color: ${geom.color};">
+        <div class="lod-wh-pill ${isFocused ? 'focus' : ''} ${isDimmed ? 'dimmed' : ''} ${isBeingEdited ? 'editing' : ''}" style="border-left-color: ${geom.color};">
           <div class="pill-name" style="color: ${geom.color}">${wh.name}</div>
           <div class="pill-stats">
             <span>${stat.occupied}/${stat.total} SP</span>
@@ -431,7 +495,47 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
       L.marker([geom.bounds[1][0], geom.center[1]], { icon: labelIcon, interactive: false }).addTo(layersGroup);
 
-      // 3. Draw Internal Rack Grids (ONLY for focused warehouse or when zoomed in and not dimmed)
+      // 3. Draggable Center Handle when in Calibration Mode for this warehouse
+      if (isCalibrating && isBeingEdited) {
+        const dragHandleIcon = L.divIcon({
+          html: `
+            <div class="wh-drag-handle animate-fade-in" title="Kéo thả để di chuyển kho ${wh.name}">
+              <div class="drag-icon-center"><span class="drag-wh-tag">${wh.id}</span></div>
+            </div>
+          `,
+          className: 'custom-drag-marker',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
+        });
+
+        const centerMarker = L.marker(geom.center, {
+          icon: dragHandleIcon,
+          draggable: true,
+          zIndexOffset: 1000
+        });
+
+        centerMarker.on('drag', (e: L.LeafletEvent) => {
+          const marker = e.target as L.Marker;
+          const pos = marker.getLatLng();
+          setEditLat(pos.lat.toFixed(6));
+          setEditLng(pos.lng.toFixed(6));
+
+          setCustomGeometries(prev => ({
+            ...prev,
+            [wh.id]: {
+              centerLat: pos.lat,
+              centerLng: pos.lng,
+              width: geom.width,
+              height: geom.height,
+              color: geom.color
+            }
+          }));
+        });
+
+        centerMarker.addTo(editGroup);
+      }
+
+      // 4. Internal Racks
       const renderThisWarehouseRacks = shouldDrawRacks && (!activeWarehouseFocus || isFocused);
 
       if (renderThisWarehouseRacks) {
@@ -506,11 +610,9 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
           rackPoly.addTo(racksGroup);
 
-          // Rack Label text
-          const centerLat = (cellNorth + cellSouth) / 2;
-          const centerLng = (cellWest + cellEast) / 2;
+          const cLat = (cellNorth + cellSouth) / 2;
+          const cLng = (cellWest + cellEast) / 2;
 
-          // Only render text inside cell when zoomed close enough to avoid visual clutter
           if (currentZoom >= 18) {
             const rackIcon = L.divIcon({
               html: `
@@ -524,7 +626,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
               iconAnchor: [22, currentZoom >= 19 && hasProduct ? 14 : 9]
             });
 
-            L.marker([centerLat, centerLng], { icon: rackIcon, interactive: false }).addTo(racksGroup);
+            L.marker([cLat, cLng], { icon: rackIcon, interactive: false }).addTo(racksGroup);
           }
         });
       }
@@ -538,30 +640,72 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     activeWarehouseFocus,
     filterMode,
     currentZoom,
+    isCalibrating,
+    editingWhId,
     selectedLocationId,
     highlightProductCode
   ]);
 
-  // Save manual GPS input coordinates to database & Supabase
-  const handleSaveManualGPS = async (e: React.FormEvent) => {
+  // Save changes for currently edited warehouse
+  const handleSaveIndividualWarehouse = async (e: React.FormEvent) => {
     e.preventDefault();
-    const lat = parseFloat(customLatInput);
-    const lng = parseFloat(customLngInput);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      setBaseCoords({ lat, lng });
-      await saveWarehouseGPSConfig(lat, lng, scaleFactor);
-      setIsCalibrating(false);
-      mapInstanceRef.current?.flyTo([lat, lng], 18, { duration: 1 });
+    if (!editingWhId) return;
+
+    const lat = parseFloat(editLat);
+    const lng = parseFloat(editLng);
+    const widthDeg = (editWidth || 60) / 100000;
+    const heightDeg = (editHeight || 40) / 100000;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      alert('Vui lòng nhập tọa độ hợp lệ.');
+      return;
     }
+
+    const newConfig: WarehouseGeometryConfig = {
+      centerLat: lat,
+      centerLng: lng,
+      width: widthDeg,
+      height: heightDeg,
+      color: editColor
+    };
+
+    setCustomGeometries(prev => ({
+      ...prev,
+      [editingWhId]: newConfig
+    }));
+
+    await saveWarehouseGeometryConfig(editingWhId, newConfig);
+    setSaveSuccessMsg(`Đã lưu cấu hình riêng cho Kho ${editingWhId}!`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
   };
 
-  const handleResetToDefaultGPS = async () => {
-    setBaseCoords({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
-    setCustomLatInput(DEFAULT_LAT.toString());
-    setCustomLngInput(DEFAULT_LNG.toString());
-    setScaleFactor(1);
-    await saveWarehouseGPSConfig(DEFAULT_LAT, DEFAULT_LNG, 1);
-    mapInstanceRef.current?.flyTo([DEFAULT_LAT, DEFAULT_LNG], 18, { duration: 1 });
+  // Reset current warehouse geometry to default layout
+  const handleResetSingleWarehouse = async () => {
+    if (!editingWhId) return;
+    const defaultOffset = DEFAULT_WAREHOUSE_OFFSETS[editingWhId];
+    if (defaultOffset) {
+      const defLat = baseCoords.lat + defaultOffset.latOffset;
+      const defLng = baseCoords.lng + defaultOffset.lngOffset;
+      const defWidthDeg = defaultOffset.width;
+      const defHeightDeg = defaultOffset.height;
+
+      const restored: WarehouseGeometryConfig = {
+        centerLat: defLat,
+        centerLng: defLng,
+        width: defWidthDeg,
+        height: defHeightDeg,
+        color: defaultOffset.color
+      };
+
+      setCustomGeometries(prev => ({
+        ...prev,
+        [editingWhId]: restored
+      }));
+
+      await saveWarehouseGeometryConfig(editingWhId, restored);
+      setSaveSuccessMsg(`Đã khôi phục mặc định cho Kho ${editingWhId}!`);
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    }
   };
 
   // Search logic
@@ -614,7 +758,6 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     setInspectedLocation(null);
   };
 
-  // Currently focused warehouse object (if any)
   const focusedWarehouseObj = warehouses.find(w => w.id === activeWarehouseFocus);
   const focusedStats = activeWarehouseFocus ? warehouseStats[activeWarehouseFocus] : null;
 
@@ -653,7 +796,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
           ))}
         </div>
 
-        {/* GPS & Calibration Action */}
+        {/* Action Buttons: GPS & Per-Warehouse Calibration */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             className="sat-tab-btn"
@@ -667,11 +810,14 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
           <button
             className={`sat-tab-btn ${isCalibrating ? 'active' : ''}`}
-            onClick={() => setIsCalibrating(!isCalibrating)}
-            title="Tự căn chỉnh vị trí tọa độ kho trên Google Maps"
+            onClick={() => {
+              setIsCalibrating(!isCalibrating);
+              setIsClickToPlaceActive(false);
+            }}
+            title="Chỉnh sửa vị trí & kích thước từng kho trên Google Maps"
           >
-            <Sliders size={14} />
-            <span>Căn chỉnh GPS Kho</span>
+            <Edit3 size={14} />
+            <span>Chỉnh sửa từng kho</span>
           </button>
         </div>
 
@@ -695,7 +841,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
         </div>
       </div>
 
-      {/* Focus Mode Quick Banner (When looking at a single warehouse) */}
+      {/* Focus Mode Quick Banner */}
       {focusedWarehouseObj && focusedStats && (
         <div className="focus-warehouse-banner glass-card animate-fade-in">
           <div className="focus-banner-left">
@@ -728,34 +874,84 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
         </div>
       )}
 
-      {/* GPS Calibration Bar (Opens when Calibrating) */}
+      {/* Per-Warehouse Interactive Calibration Drawer */}
       {isCalibrating && (
-        <div className="glass-card gps-calibration-bar animate-fade-in">
+        <div className="glass-card per-warehouse-calib-drawer animate-fade-in">
           <div className="calib-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Move size={18} className="text-primary" />
-              <strong>Căn chỉnh Tọa độ Sơ đồ Kho trên Google Maps</strong>
+              <Edit3 size={18} className="text-primary" />
+              <strong>Chỉnh sửa Vị trí & Kích thước Riêng Từng Kho</strong>
               {userLocation && (
                 <span className="badge badge-completed" style={{ fontSize: '0.7rem' }}>
                   GPS: &plusmn;{Math.round(userLocation.accuracy || 0)}m
+                </span>
+              )}
+              {saveSuccessMsg && (
+                <span className="badge badge-completed animate-fade-in" style={{ fontSize: '0.75rem' }}>
+                  {saveSuccessMsg}
                 </span>
               )}
             </div>
             <button className="calib-close" onClick={() => setIsCalibrating(false)}>&times;</button>
           </div>
 
-          <p className="text-muted" style={{ fontSize: '0.8rem', margin: '4px 0 12px' }}>
-            💡 Nhấp chuột trực tiếp lên bản đồ vệ tinh để đặt vị trí kho mới, hoặc bấm nút dưới để lấy GPS thực tế của bạn:
+          {/* Warehouse Selector Tabs */}
+          <div className="calib-wh-selector">
+            <span className="calib-wh-label">Kho đang chỉnh sửa:</span>
+            <div className="calib-wh-chips">
+              {warehouses.map(w => (
+                <button
+                  key={w.id}
+                  type="button"
+                  className={`calib-wh-chip ${editingWhId === w.id ? 'active' : ''}`}
+                  style={{
+                    borderColor: editingWhId === w.id ? warehouseGeometries[w.id]?.color : '#cbd5e1',
+                    background: editingWhId === w.id ? 'var(--color-primary-light)' : '#ffffff'
+                  }}
+                  onClick={() => {
+                    setEditingWhId(w.id);
+                    setIsClickToPlaceActive(false);
+                    const geom = warehouseGeometries[w.id];
+                    if (geom && mapInstanceRef.current) {
+                      mapInstanceRef.current.flyTo(geom.center, 19, { duration: 0.8 });
+                    }
+                  }}
+                >
+                  <span className="dot-indicator" style={{ background: warehouseGeometries[w.id]?.color || '#2563eb' }} />
+                  <strong>{w.name}</strong>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-muted" style={{ fontSize: '0.8rem', margin: '6px 0 14px' }}>
+            💡 Cầm chuột <strong>kéo thả biểu tượng [{editingWhId}] màu xanh ở tâm kho</strong> trên bản đồ, hoặc bấm nút dưới để nhấp chuột định vị:
           </p>
 
-          <form onSubmit={handleSaveManualGPS} className="calib-form">
+          <form onSubmit={handleSaveIndividualWarehouse} className="calib-form">
             <div className="calib-inputs">
               <div className="input-field">
                 <label>Vĩ độ (Lat):</label>
                 <input
                   type="text"
-                  value={customLatInput}
-                  onChange={(e) => setCustomLatInput(e.target.value)}
+                  value={editLat}
+                  onChange={(e) => {
+                    setEditLat(e.target.value);
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) {
+                      setCustomGeometries(prev => ({
+                        ...prev,
+                        [editingWhId]: {
+                          ...prev[editingWhId],
+                          centerLat: v,
+                          centerLng: parseFloat(editLng) || DEFAULT_LNG,
+                          width: (editWidth || 60) / 100000,
+                          height: (editHeight || 40) / 100000,
+                          color: editColor
+                        }
+                      }));
+                    }
+                  }}
                   placeholder="10.7932..."
                 />
               </div>
@@ -764,43 +960,126 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
                 <label>Kinh độ (Lng):</label>
                 <input
                   type="text"
-                  value={customLngInput}
-                  onChange={(e) => setCustomLngInput(e.target.value)}
+                  value={editLng}
+                  onChange={(e) => {
+                    setEditLng(e.target.value);
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) {
+                      setCustomGeometries(prev => ({
+                        ...prev,
+                        [editingWhId]: {
+                          ...prev[editingWhId],
+                          centerLat: parseFloat(editLat) || DEFAULT_LAT,
+                          centerLng: v,
+                          width: (editWidth || 60) / 100000,
+                          height: (editHeight || 40) / 100000,
+                          color: editColor
+                        }
+                      }));
+                    }
+                  }}
                   placeholder="106.6542..."
                 />
               </div>
 
-              <div className="input-field" style={{ maxWidth: '140px' }}>
-                <label>Tỉ lệ kho:</label>
-                <select
-                  value={scaleFactor}
-                  onChange={(e) => setScaleFactor(parseFloat(e.target.value))}
-                  className="scale-select"
-                >
-                  <option value="0.75">Thu nhỏ 75%</option>
-                  <option value="1">Chuẩn 100%</option>
-                  <option value="1.25">Phóng to 125%</option>
-                  <option value="1.5">Phóng to 150%</option>
-                  <option value="2">Rộng 200%</option>
-                </select>
+              <div className="input-field" style={{ minWidth: '120px' }}>
+                <label>Chiều dài: <strong>~{editWidth}m</strong></label>
+                <input
+                  type="range"
+                  min="20"
+                  max="200"
+                  step="5"
+                  value={editWidth}
+                  onChange={(e) => {
+                    const w = parseInt(e.target.value, 10);
+                    setEditWidth(w);
+                    setCustomGeometries(prev => ({
+                      ...prev,
+                      [editingWhId]: {
+                        centerLat: parseFloat(editLat) || DEFAULT_LAT,
+                        centerLng: parseFloat(editLng) || DEFAULT_LNG,
+                        width: w / 100000,
+                        height: (editHeight || 40) / 100000,
+                        color: editColor
+                      }
+                    }));
+                  }}
+                />
+              </div>
+
+              <div className="input-field" style={{ minWidth: '120px' }}>
+                <label>Chiều rộng: <strong>~{editHeight}m</strong></label>
+                <input
+                  type="range"
+                  min="15"
+                  max="150"
+                  step="5"
+                  value={editHeight}
+                  onChange={(e) => {
+                    const h = parseInt(e.target.value, 10);
+                    setEditHeight(h);
+                    setCustomGeometries(prev => ({
+                      ...prev,
+                      [editingWhId]: {
+                        centerLat: parseFloat(editLat) || DEFAULT_LAT,
+                        centerLng: parseFloat(editLng) || DEFAULT_LNG,
+                        width: (editWidth || 60) / 100000,
+                        height: h / 100000,
+                        color: editColor
+                      }
+                    }));
+                  }}
+                />
+              </div>
+
+              <div className="input-field" style={{ maxWidth: '100px' }}>
+                <label>Màu viền:</label>
+                <input
+                  type="color"
+                  value={editColor}
+                  onChange={(e) => {
+                    setEditColor(e.target.value);
+                    setCustomGeometries(prev => ({
+                      ...prev,
+                      [editingWhId]: {
+                        ...prev[editingWhId],
+                        centerLat: parseFloat(editLat) || DEFAULT_LAT,
+                        centerLng: parseFloat(editLng) || DEFAULT_LNG,
+                        width: (editWidth || 60) / 100000,
+                        height: (editHeight || 40) / 100000,
+                        color: e.target.value
+                      }
+                    }));
+                  }}
+                  style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                />
               </div>
             </div>
 
             <div className="calib-actions">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className={`btn ${isClickToPlaceActive ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}
-                onClick={() => fetchCurrentDeviceGPS(true)}
+                onClick={() => setIsClickToPlaceActive(!isClickToPlaceActive)}
               >
-                <Crosshair size={14} /> Đặt kho tại GPS của tôi
+                <MapPin size={14} /> {isClickToPlaceActive ? '👉 Nhấp chuột lên bản đồ...' : `Click bản đồ để đặt Kho ${editingWhId}`}
               </button>
 
               <button
                 type="button"
                 className="btn btn-secondary"
                 style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}
-                onClick={handleResetToDefaultGPS}
+                onClick={() => fetchCurrentDeviceGPS(true)}
+              >
+                <Crosshair size={14} /> Đặt Kho {editingWhId} tại GPS của tôi
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}
+                onClick={handleResetSingleWarehouse}
               >
                 <RotateCcw size={14} /> Mặc định
               </button>
@@ -808,9 +1087,9 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
               <button
                 type="submit"
                 className="btn btn-primary"
-                style={{ width: 'auto', padding: '6px 16px', fontSize: '0.8rem' }}
+                style={{ width: 'auto', padding: '6px 18px', fontSize: '0.8rem' }}
               >
-                <Check size={14} /> Lưu tọa độ GPS
+                <Check size={14} /> Lưu cấu hình Kho {editingWhId}
               </button>
             </div>
           </form>
