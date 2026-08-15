@@ -719,26 +719,18 @@ export const createCustomWarehouse = async (
   }
 
   // Update LocalStorage
-  const allWarehouses: Warehouse[] = JSON.parse(localStorage.getItem(LS_KEYS.WAREHOUSES) || '[]');
-  allWarehouses.push(warehouse);
-  localStorage.setItem(LS_KEYS.WAREHOUSES, JSON.stringify(allWarehouses));
+  const allWhs: Warehouse[] = JSON.parse(localStorage.getItem(LS_KEYS.WAREHOUSES) || '[]');
+  allWhs.push(warehouse);
+  localStorage.setItem(LS_KEYS.WAREHOUSES, JSON.stringify(allWhs));
 
   const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
   const updatedLocs = [...allLocs, ...generatedLocs];
   localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(updatedLocs));
 
-  // Try saving to Supabase or queue offline
   if (supabaseClient) {
     try {
-      const { error: wErr } = await supabaseClient
-        .from('warehouses')
-        .insert(warehouse);
-      if (wErr) throw wErr;
-
-      const { error: lErr } = await supabaseClient
-        .from('warehouse_locations')
-        .insert(generatedLocs);
-      if (lErr) throw lErr;
+      await supabaseClient.from('warehouses').upsert(warehouse);
+      await supabaseClient.from('warehouse_locations').upsert(generatedLocs);
     } catch (e) {
       console.warn('Supabase save failed, queuing offline:', e);
       queueOfflineAction('create_warehouse', { warehouse, locations: generatedLocs });
@@ -746,6 +738,233 @@ export const createCustomWarehouse = async (
   }
 
   return warehouse;
+};
+
+// 9. Update Warehouse Grid / Partitioning
+export const updateWarehousePartitionGrid = async (
+  warehouseId: string,
+  columns: number,
+  rows: number,
+  type: 'grid' | 'aisle' = 'grid',
+  regenerateSlots = false
+): Promise<boolean> => {
+  const allWhs: Warehouse[] = JSON.parse(localStorage.getItem(LS_KEYS.WAREHOUSES) || '[]');
+  const whIdx = allWhs.findIndex(w => w.id === warehouseId);
+  if (whIdx > -1) {
+    allWhs[whIdx].columns = columns;
+    allWhs[whIdx].rows = rows;
+    allWhs[whIdx].type = type;
+    localStorage.setItem(LS_KEYS.WAREHOUSES, JSON.stringify(allWhs));
+  }
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient
+        .from('warehouses')
+        .update({ columns, rows, type })
+        .eq('id', warehouseId);
+    } catch (e) {
+      console.warn('Update warehouse grid in Supabase failed:', e);
+    }
+  }
+
+  if (regenerateSlots) {
+    let allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
+    const otherLocs = allLocs.filter(l => l.warehouse_id !== warehouseId);
+    const newLocs: WarehouseLocation[] = [];
+
+    if (type === 'grid') {
+      const getRowLetter = (index: number) => String.fromCharCode(65 + index);
+      for (let r = 0; r < rows; r++) {
+        const rowLetter = getRowLetter(r);
+        for (let c = 0; c < columns; c++) {
+          const colString = String(c + 1).padStart(2, '0');
+          const code = `${rowLetter}${colString}`;
+          newLocs.push({
+            id: `${warehouseId}-${code}`,
+            warehouse_id: warehouseId,
+            code,
+            column_index: c,
+            row_index: r,
+            qr_payload: `WAREHOUSE_LOCATION:${warehouseId}-${code}`
+          });
+        }
+      }
+    } else {
+      for (let c = 0; c < columns; c++) {
+        const code = `D${c + 1}`;
+        newLocs.push({
+          id: `${warehouseId}-${code}`,
+          warehouse_id: warehouseId,
+          code,
+          column_index: c,
+          row_index: 0,
+          qr_payload: `WAREHOUSE_LOCATION:${warehouseId}-${code}`
+        });
+      }
+    }
+
+    allLocs = [...otherLocs, ...newLocs];
+    localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(allLocs));
+
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('warehouse_locations').delete().eq('warehouse_id', warehouseId);
+        await supabaseClient.from('warehouse_locations').upsert(newLocs);
+      } catch (e) {
+        console.warn('Regenerate slots in Supabase failed:', e);
+      }
+    }
+  }
+
+  return true;
+};
+
+// 10. Add Single Custom Slot to Warehouse
+export const addWarehouseSlot = async (
+  warehouseId: string,
+  code: string,
+  rowIndex = 0,
+  columnIndex = 0
+): Promise<WarehouseLocation> => {
+  const cleanCode = code.trim().toUpperCase();
+  const id = `${warehouseId}-${cleanCode}`;
+  const newLocation: WarehouseLocation = {
+    id,
+    warehouse_id: warehouseId,
+    code: cleanCode,
+    row_index: rowIndex,
+    column_index: columnIndex,
+    qr_payload: `WAREHOUSE_LOCATION:${id}`,
+    created_at: new Date().toISOString()
+  };
+
+  const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
+  const existingIdx = allLocs.findIndex(l => l.id === id);
+  if (existingIdx > -1) {
+    allLocs[existingIdx] = newLocation;
+  } else {
+    allLocs.push(newLocation);
+  }
+  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(allLocs));
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').upsert(newLocation);
+    } catch (e) {
+      console.warn('Add slot to Supabase failed:', e);
+    }
+  }
+
+  return newLocation;
+};
+
+// 11. Delete Single Slot
+export const deleteWarehouseSlot = async (locationId: string): Promise<boolean> => {
+  let allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
+  allLocs = allLocs.filter(l => l.id !== locationId);
+  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(allLocs));
+
+  const allCur: ProductCurrentLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
+  const prodIdx = allCur.findIndex(p => p.location_id === locationId);
+  if (prodIdx > -1) {
+    allCur[prodIdx].location_id = null;
+    allCur[prodIdx].updated_at = new Date().toISOString();
+    localStorage.setItem(LS_KEYS.PRODUCT_LOCATIONS, JSON.stringify(allCur));
+  }
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').delete().eq('id', locationId);
+      if (prodIdx > -1) {
+        await supabaseClient
+          .from('product_current_locations')
+          .update({ location_id: null, updated_at: new Date().toISOString() })
+          .eq('product_code', allCur[prodIdx].product_code);
+      }
+    } catch (e) {
+      console.warn('Delete slot in Supabase failed:', e);
+    }
+  }
+
+  return true;
+};
+
+// 12. Transfer / Move Entire Slot (and stored product) to Another Warehouse
+export const transferSlotToWarehouse = async (
+  sourceLocationId: string,
+  targetWarehouseId: string
+): Promise<{ success: boolean; newLocationId: string }> => {
+  const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
+  const srcLoc = allLocs.find(l => l.id === sourceLocationId);
+
+  if (!srcLoc) {
+    throw new Error(`Không tìm thấy vị trí ${sourceLocationId}`);
+  }
+
+  const newLocationId = `${targetWarehouseId}-${srcLoc.code}`;
+  const newLocation: WarehouseLocation = {
+    ...srcLoc,
+    id: newLocationId,
+    warehouse_id: targetWarehouseId,
+    qr_payload: `WAREHOUSE_LOCATION:${newLocationId}`,
+    created_at: new Date().toISOString()
+  };
+
+  const updatedLocs = allLocs.filter(l => l.id !== sourceLocationId);
+  updatedLocs.push(newLocation);
+  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(updatedLocs));
+
+  const allCur: ProductCurrentLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
+  const prod = allCur.find(p => p.location_id === sourceLocationId);
+  if (prod) {
+    prod.location_id = newLocationId;
+    prod.updated_at = new Date().toISOString();
+    localStorage.setItem(LS_KEYS.PRODUCT_LOCATIONS, JSON.stringify(allCur));
+
+    const movement: ProductLocationMovement = {
+      id: Math.random().toString(36).substr(2, 9),
+      product_code: prod.product_code,
+      from_location_id: sourceLocationId,
+      to_location_id: newLocationId,
+      status: 'completed',
+      ocr_confidence: 1,
+      gps_lat: null,
+      gps_lng: null,
+      user_name: 'Transfer Slot Admin',
+      created_at: new Date().toISOString()
+    };
+    const moves: ProductLocationMovement[] = JSON.parse(localStorage.getItem(LS_KEYS.MOVEMENTS) || '[]');
+    moves.unshift(movement);
+    localStorage.setItem(LS_KEYS.MOVEMENTS, JSON.stringify(moves));
+
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('product_location_movements').insert(movement);
+      } catch (e) {}
+    }
+  }
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').delete().eq('id', sourceLocationId);
+      await supabaseClient.from('warehouse_locations').upsert(newLocation);
+
+      if (prod) {
+        await supabaseClient
+          .from('product_current_locations')
+          .upsert({
+            product_code: prod.product_code,
+            location_id: newLocationId,
+            updated_at: prod.updated_at
+          });
+      }
+    } catch (e) {
+      console.warn('Transfer slot in Supabase failed:', e);
+    }
+  }
+
+  return { success: true, newLocationId };
 };
 
 // --- Offline Queue Handling ---

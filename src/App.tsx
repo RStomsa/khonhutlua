@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Sparkles,
   Info,
-  Printer
+  Printer,
+  Grid
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -56,6 +57,7 @@ import { performOCR } from './lib/ocr';
 import { parseQRPayload } from './lib/qr';
 import { WarehouseSatelliteMap } from './components/WarehouseSatelliteMap';
 import { QRPrintManager } from './components/QRPrintManager';
+import { WarehousePartitionManager } from './components/WarehousePartitionManager';
 
 function App() {
   // --- Navigation State ---
@@ -115,6 +117,10 @@ function App() {
   // QR Print Manager Modal
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printInitialWarehouseId, setPrintInitialWarehouseId] = useState<string | undefined>(undefined);
+
+  // Warehouse Partition / Transfer Modal
+  const [isPartitionModalOpen, setIsPartitionModalOpen] = useState(false);
+  const [partitionInitialWarehouseId, setPartitionInitialWarehouseId] = useState<string | undefined>(undefined);
 
   // --- Search Screen States ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -633,6 +639,15 @@ function App() {
           <button
             className="btn btn-secondary flex-center gap-sm"
             style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
+            onClick={() => { setPartitionInitialWarehouseId(undefined); setIsPartitionModalOpen(true); }}
+            title="Phân chia lại ô kệ hoặc bốc ô sang kho khác"
+          >
+            <Grid size={15} /> Chia lại ô
+          </button>
+
+          <button
+            className="btn btn-secondary flex-center gap-sm"
+            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
             onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}
             title="In mã QR dán các ô kệ"
           >
@@ -1082,6 +1097,11 @@ function App() {
                 onSelectLocation={(locId) => handleCellClick(locId)}
                 selectedLocationId={selectedCellInfo?.locationId}
                 highlightProductCode={searchResult?.productCode}
+                onOpenPartitionModal={(whId) => {
+                  setPartitionInitialWarehouseId(whId);
+                  setIsPartitionModalOpen(true);
+                }}
+                onDataChanged={loadData}
               />
             ) : (
               /* TRADITIONAL 2D GRID VIEW */
@@ -1531,6 +1551,19 @@ function App() {
           allLocations={allLocations}
           onClose={() => setIsPrintModalOpen(false)}
           initialWarehouseId={printInitialWarehouseId}
+        />
+      )}
+
+      {/* WAREHOUSE PARTITION & SLOT TRANSFER MANAGER MODAL */}
+      {isPartitionModalOpen && (
+        <WarehousePartitionManager
+          isOpen={isPartitionModalOpen}
+          onClose={() => setIsPartitionModalOpen(false)}
+          warehouses={warehouses}
+          allLocations={allLocations}
+          currentLocations={currentLocations}
+          initialWarehouseId={partitionInitialWarehouseId}
+          onDataChanged={loadData}
         />
       )}
     </div>

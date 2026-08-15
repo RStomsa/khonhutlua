@@ -14,7 +14,9 @@ import {
   Crosshair,
   Check,
   RotateCcw,
-  Edit3
+  Edit3,
+  Grid,
+  ArrowRightLeft
 } from 'lucide-react';
 import type {
   Warehouse,
@@ -27,7 +29,8 @@ import type {
 import {
   getWarehousesGeometriesConfig,
   saveWarehouseGeometryConfig,
-  getWarehouseGPSConfig
+  getWarehouseGPSConfig,
+  transferSlotToWarehouse
 } from '../lib/database';
 
 interface WarehouseSatelliteMapProps {
@@ -38,6 +41,8 @@ interface WarehouseSatelliteMapProps {
   onSelectLocation?: (locationId: string) => void;
   selectedLocationId?: string | null;
   highlightProductCode?: string | null;
+  onOpenPartitionModal?: (warehouseId?: string) => void;
+  onDataChanged?: () => void;
 }
 
 // Map Tile Providers
@@ -120,7 +125,9 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   movementsHistory,
   onSelectLocation,
   selectedLocationId,
-  highlightProductCode
+  highlightProductCode,
+  onOpenPartitionModal,
+  onDataChanged
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -166,6 +173,10 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'success' | 'error'>('idle');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+
+  // Inspector Quick Transfer State
+  const [quickTargetWh, setQuickTargetWh] = useState<string>('');
+  const [isQuickTransferring, setIsQuickTransferring] = useState(false);
 
   // Product lookup map
   const productByLocation = useMemo(() => {
@@ -817,7 +828,17 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
             title="Chỉnh sửa vị trí & kích thước từng kho trên Google Maps"
           >
             <Edit3 size={14} />
-            <span>Chỉnh sửa từng kho</span>
+            <span>Vị trí từng kho</span>
+          </button>
+
+          <button
+            className="sat-tab-btn"
+            style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', borderColor: '#a7f3d0' }}
+            onClick={() => onOpenPartitionModal && onOpenPartitionModal(activeWarehouseFocus || editingWhId)}
+            title="Phân chia lại hàng/cột hoặc bốc ô sang kho khác"
+          >
+            <Grid size={14} />
+            <span>Chia lại ô & Bốc ô</span>
           </button>
         </div>
 
@@ -1251,6 +1272,51 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
               <div className="inspector-info-row">
                 <span className="info-key">Mã QR Kệ:</span>
                 <code className="info-val">{inspectedLocation.qr_payload}</code>
+              </div>
+
+              {/* Quick Transfer Slot Tool in Inspector */}
+              <div className="inspector-product-card" style={{ marginTop: '10px' }}>
+                <span className="inspector-label">🚚 Bốc nguyên ô này sang kho khác:</span>
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                  <select
+                    value={quickTargetWh}
+                    onChange={(e) => setQuickTargetWh(e.target.value)}
+                    className="form-input"
+                    style={{ fontSize: '0.78rem', padding: '6px 8px', flex: 1 }}
+                  >
+                    <option value="">Chọn kho đích...</option>
+                    {warehouses
+                      .filter(w => w.id !== inspectedLocation.warehouse_id)
+                      .map(w => (
+                        <option key={w.id} value={w.id}>
+                          Sang {w.name}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: 'auto', padding: '6px 12px', fontSize: '0.78rem' }}
+                    disabled={!quickTargetWh || isQuickTransferring}
+                    onClick={async () => {
+                      if (!quickTargetWh) return;
+                      setIsQuickTransferring(true);
+                      try {
+                        const res = await transferSlotToWarehouse(inspectedLocation.id, quickTargetWh);
+                        alert(`Đã bốc ô ${inspectedLocation.id} sang Kho ${quickTargetWh}! Mã mới: ${res.newLocationId}`);
+                        setInspectedLocation(null);
+                        setQuickTargetWh('');
+                        if (onDataChanged) onDataChanged();
+                      } catch (err: any) {
+                        alert(err.message || 'Lỗi khi bốc ô');
+                      } finally {
+                        setIsQuickTransferring(false);
+                      }
+                    }}
+                  >
+                    <ArrowRightLeft size={13} /> Bốc ô
+                  </button>
+                </div>
               </div>
 
               <div className="inspector-history-section">
