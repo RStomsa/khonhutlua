@@ -8,17 +8,31 @@
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Warehouse Management PWA</title>
+    <title>Warehouse Management PWA - Kho Nhựt Lúa</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Automatic cache-bust reload on chunk load failure
+      window.addEventListener('error', (e) => {
+        const isChunkError = (e.message && e.message.includes('dynamically imported module')) || 
+                             (e.target && e.target.tagName === 'SCRIPT');
+        if (isChunkError) {
+          if (!sessionStorage.getItem('chunk_retry')) {
+            sessionStorage.setItem('chunk_retry', '1');
+            window.location.reload();
+          }
+        }
+      }, true);
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
-            .then((reg) => console.log('Service Worker registered successfully:', reg.scope))
-            .catch((err) => console.error('Service Worker registration failed:', err));
+            .then((reg) => {
+              reg.update();
+            })
+            .catch((err) => console.error('Service Worker registration:', err));
         });
       }
     </script>
