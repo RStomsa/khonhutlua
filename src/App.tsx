@@ -61,8 +61,8 @@ function App() {
   // --- Navigation State ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'scanner' | 'maps' | 'search' | 'history' | 'settings'>('dashboard');
 
-  // --- Theme State ---
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  // --- Theme State (Mặc định Giao diện Sáng màu) ---
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('kho_theme') === 'dark');
 
   // --- Database Data States ---
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -190,6 +190,7 @@ function App() {
   // Update theme class on HTML element
   useEffect(() => {
     const root = window.document.documentElement;
+    localStorage.setItem('kho_theme', isDarkMode ? 'dark' : 'light');
     if (isDarkMode) {
       root.classList.remove('light');
     } else {
@@ -1098,6 +1099,7 @@ function App() {
                 onSelectLocation={(locId) => handleCellClick(locId)}
                 selectedLocationId={selectedCellInfo?.locationId}
                 highlightProductCode={searchResult?.productCode}
+                isDarkMode={isDarkMode}
               />
             ) : (
               /* TRADITIONAL 2D GRID VIEW */
