@@ -35,7 +35,6 @@ interface WarehouseSatelliteMapProps {
   onSelectLocation?: (locationId: string) => void;
   selectedLocationId?: string | null;
   highlightProductCode?: string | null;
-  isDarkMode?: boolean;
 }
 
 // Map Tile Providers including Google Maps Satellite / Hybrid
@@ -128,8 +127,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   movementsHistory,
   onSelectLocation,
   selectedLocationId,
-  highlightProductCode,
-  isDarkMode = false
+  highlightProductCode
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -394,11 +392,11 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
       // Warehouse Title Label
       if (showLabels) {
         const labelHtml = `
-          <div class="satellite-wh-label ${isDarkMode ? 'dark-mode' : 'light-mode'}" style="border-left: 3px solid ${geom.color};">
-            <div class="wh-label-title" style="color: ${geom.tagColor}">${wh.name}</div>
+          <div class="satellite-wh-label" style="border-left: 3.5px solid ${geom.color};">
+            <div class="wh-label-title" style="color: ${geom.color}">${wh.name}</div>
             <div class="wh-label-sub">
               <span>${stat.occupied}/${stat.total} SP</span>
-              <span class="wh-fill-badge" style="background: ${stat.percentage > 80 ? '#ef4444' : '#10b981'}">${stat.percentage}%</span>
+              <span class="wh-fill-badge" style="background: ${stat.percentage > 80 ? '#dc2626' : '#059669'}">${stat.percentage}%</span>
             </div>
           </div>
         `;
@@ -458,9 +456,9 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
             [cellNorth, cellEast]
           ];
 
-          let cellColor = hasProduct ? '#10b981' : '#64748b';
-          let cellFill = hasProduct ? 'rgba(16, 185, 129, 0.75)' : (isDarkMode ? 'rgba(15, 23, 42, 0.6)' : 'rgba(255, 255, 255, 0.7)');
-          let cellWeight = 1.2;
+          let cellColor = hasProduct ? '#059669' : '#94a3b8';
+          let cellFill = hasProduct ? 'rgba(5, 150, 105, 0.85)' : 'rgba(255, 255, 255, 0.85)';
+          let cellWeight = 1.4;
 
           if (isHighlightProduct || isLocationSelected) {
             cellColor = '#f59e0b';
@@ -517,8 +515,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     showRacks,
     showLabels,
     selectedLocationId,
-    highlightProductCode,
-    isDarkMode
+    highlightProductCode
   ]);
 
   // Save manual GPS input coordinates
@@ -593,7 +590,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   };
 
   return (
-    <div className={`satellite-map-wrapper ${isFullscreen ? 'fullscreen-mode' : ''} ${isDarkMode ? 'theme-dark' : 'theme-light'}`}>
+    <div className={`satellite-map-wrapper ${isFullscreen ? 'fullscreen-mode' : ''}`}>
       {/* Top Map Control Bar */}
       <div className="satellite-topbar glass-card">
         <div className="sat-quick-tabs">

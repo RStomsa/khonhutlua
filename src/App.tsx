@@ -61,8 +61,6 @@ function App() {
   // --- Navigation State ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'scanner' | 'maps' | 'search' | 'history' | 'settings'>('dashboard');
 
-  // --- Theme State (Mặc định Giao diện Sáng màu) ---
-  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('kho_theme') === 'dark');
 
   // --- Database Data States ---
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -187,16 +185,10 @@ function App() {
     };
   }, []);
 
-  // Update theme class on HTML element
+  // Lock to clean light theme
   useEffect(() => {
-    const root = window.document.documentElement;
-    localStorage.setItem('kho_theme', isDarkMode ? 'dark' : 'light');
-    if (isDarkMode) {
-      root.classList.remove('light');
-    } else {
-      root.classList.add('light');
-    }
-  }, [isDarkMode]);
+    window.document.documentElement.classList.add('light');
+  }, []);
 
   // Handle local notifications
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
@@ -646,15 +638,6 @@ function App() {
           >
             <Printer size={15} /> In QR Kệ
           </button>
-          
-          <button
-            className="btn btn-secondary"
-            style={{ width: '40px', height: '40px', padding: '0', borderRadius: '50%' }}
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            title="Đổi giao diện"
-          >
-            <Sparkles size={18} />
-          </button>
         </div>
       </header>
 
@@ -1099,7 +1082,6 @@ function App() {
                 onSelectLocation={(locId) => handleCellClick(locId)}
                 selectedLocationId={selectedCellInfo?.locationId}
                 highlightProductCode={searchResult?.productCode}
-                isDarkMode={isDarkMode}
               />
             ) : (
               /* TRADITIONAL 2D GRID VIEW */
