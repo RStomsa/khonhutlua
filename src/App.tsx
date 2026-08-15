@@ -454,836 +454,1143 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      {/* Top Header Bar */}
-      <header className="app-header">
-        <div className="app-branding">
-          <div className="logo-icon-box">
-            <Sparkles size={20} className="text-primary" />
+    <div className="page">
+      {/* Top Main Navbar */}
+      <header className="navbar navbar-expand-md d-print-none navbar-light bg-white border-bottom shadow-sm sticky-top">
+        <div className="container-xl d-flex align-items-center justify-content-between">
+          <div className="d-flex align-items-center gap-3">
+            <a href="#" className="navbar-brand-logo" onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }}>
+              <div className="navbar-brand-icon">
+                <Sparkles size={18} />
+              </div>
+              <div className="d-flex flex-column">
+                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0054a6', lineHeight: 1.1 }}>KHO NHỰT LÚA</span>
+                <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>Hệ thống Quản lý & Định vị Vệ tinh</span>
+              </div>
+            </a>
+
+            {isDbOnline ? (
+              <span className="badge bg-success-lt text-success d-none d-sm-inline-flex" style={{ padding: '5px 10px' }}>
+                <Database size={13} className="me-1" /> Supabase Realtime Online
+              </span>
+            ) : (
+              <span className="badge bg-warning-lt text-warning d-none d-sm-inline-flex" style={{ padding: '5px 10px' }}>
+                <Database size={13} className="me-1" /> IndexedDB Offline
+              </span>
+            )}
           </div>
-          <div>
-            <h1 className="app-title">KHO NHỰT LÚA</h1>
-            <p className="app-subtitle">Hệ thống Quản lý & Định vị Kho Chuẩn Production</p>
+
+          <div className="d-flex align-items-center gap-2">
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}
+              title="Nhập sản phẩm mới hoặc dán danh sách hàng loạt vào kho"
+            >
+              <PackagePlus size={15} /> <span className="d-none d-sm-inline">Nhập Hàng / SP Mới</span>
+            </button>
+
+            <button
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => { setPartitionInitialWarehouseId(undefined); setIsPartitionModalOpen(true); }}
+              title="Quản lý cấu trúc phân khu & ô vị trí"
+            >
+              <Grid size={15} /> <span className="d-none d-sm-inline">Phân khu & Ô</span>
+            </button>
+
+            <button
+              className="btn btn-outline-secondary btn-sm"
+              onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}
+              title="In mã QR dán các ô kệ"
+            >
+              <Printer size={15} /> <span className="d-none d-sm-inline">In QR Kệ</span>
+            </button>
           </div>
-        </div>
-
-        <div className="header-status-group">
-          {isDbOnline ? (
-            <span className="badge badge-completed flex-center gap-sm" style={{ padding: '4px 10px' }}>
-              <Database size={12} /> Supabase Realtime Online
-            </span>
-          ) : (
-            <span className="badge badge-started flex-center gap-sm" style={{ padding: '4px 10px' }}>
-              <Database size={12} /> IndexedDB Offline
-            </span>
-          )}
-
-          <button
-            className="btn btn-primary flex-center gap-sm"
-            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', background: '#2563eb', color: '#ffffff' }}
-            onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}
-            title="Nhập sản phẩm mới hoặc dán danh sách hàng loạt vào kho"
-          >
-            <PackagePlus size={15} /> Nhập Hàng / SP Mới
-          </button>
-
-          <button
-            className="btn btn-secondary flex-center gap-sm"
-            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
-            onClick={() => { setPartitionInitialWarehouseId(undefined); setIsPartitionModalOpen(true); }}
-            title="Quản lý cấu trúc phân khu & ô vị trí"
-          >
-            <Grid size={15} /> Phân khu & Ô
-          </button>
-
-          <button
-            className="btn btn-secondary flex-center gap-sm"
-            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
-            onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}
-            title="In mã QR dán các ô kệ"
-          >
-            <Printer size={15} /> In QR Kệ
-          </button>
         </div>
       </header>
 
-      {/* Navigation */}
-      <nav className="nav-menu">
-        <button className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-          <LayoutDashboard />
-          <span>Dashboard</span>
-        </button>
-        
-        <button className={`nav-item ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
-          <QrCode />
-          <span>Di chuyển</span>
-        </button>
-        
-        <button className={`nav-item ${activeTab === 'maps' ? 'active' : ''}`} onClick={() => setActiveTab('maps')}>
-          <MapIcon />
-          <span>Bản đồ kho</span>
-        </button>
-        
-        <button className={`nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
-          <Search />
-          <span>Tìm kiếm</span>
-        </button>
-        
-        <button className={`nav-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
-          <History />
-          <span>Lịch sử</span>
-        </button>
-        
-        <button className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-          <SettingsIcon />
-          <span>Cấu hình</span>
-        </button>
-      </nav>
+      {/* Secondary Horizontal Navigation Bar (Desktop) */}
+      <header className="navbar-expand-md bg-white border-bottom d-none d-md-block">
+        <div className="container-xl">
+          <div className="d-flex align-items-center py-1 gap-1">
+            <button className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+              <LayoutDashboard size={17} /> Dashboard Tổng quan
+            </button>
+            <button className={`nav-link ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
+              <QrCode size={17} /> Di chuyển kho
+            </button>
+            <button className={`nav-link ${activeTab === 'maps' ? 'active' : ''}`} onClick={() => setActiveTab('maps')}>
+              <MapIcon size={17} /> Bản đồ Vệ tinh
+            </button>
+            <button className={`nav-link ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
+              <Search size={17} /> Tra cứu vị trí
+            </button>
+            <button className={`nav-link ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
+              <History size={17} /> Nhật ký xuất nhập
+            </button>
+            <button className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+              <SettingsIcon size={17} /> Cấu hình Supabase
+            </button>
+          </div>
+        </div>
+      </header>
 
-      {/* Main Content */}
-      <main className="main-content">
+      {/* Main Page Body */}
+      <div className="page-wrapper">
         {/* Floating Notification */}
         {notification && (
           <div
-            className="glass-card animate-fade-in"
+            className="alert alert-important alert-dismissible fade show position-fixed shadow-lg"
             style={{
-              position: 'fixed',
               top: '80px',
               right: '20px',
-              zIndex: 1000,
-              padding: '12px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              borderColor: notification.type === 'error' ? 'var(--color-danger)' : notification.type === 'success' ? 'var(--color-success)' : 'var(--color-primary)',
-              background: '#ffffff',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
+              zIndex: 2000,
+              maxWidth: '380px',
+              backgroundColor: notification.type === 'error' ? '#d63939' : notification.type === 'success' ? '#2fb344' : '#0054a6',
+              color: '#ffffff',
+              borderRadius: '8px'
             }}
           >
-            {notification.type === 'error' && <XCircle className="text-danger" />}
-            {notification.type === 'success' && <CheckCircle className="text-success" />}
-            {notification.type === 'info' && <Info className="text-primary" />}
-            <span style={{ fontWeight: 600, color: '#0f172a' }}>{notification.message}</span>
+            <div className="d-flex align-items-center gap-2">
+              {notification.type === 'error' && <XCircle size={20} />}
+              {notification.type === 'success' && <CheckCircle size={20} />}
+              {notification.type === 'info' && <Info size={20} />}
+              <span className="font-weight-medium">{notification.message}</span>
+            </div>
           </div>
         )}
 
         {/* SCREEN: DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div>
-            <h2 className="screen-title"><LayoutDashboard /> Bảng điều khiển Tổng quan</h2>
-            
-            {/* Quick Stats Grid */}
-            <div className="stats-grid">
-              <div className="glass-card stat-card">
-                <div className="stat-icon bg-blue-glow">
-                  <FileText size={22} />
-                </div>
-                <div className="stat-value">{products.length}</div>
-                <div className="stat-label">Sản phẩm quản lý</div>
-              </div>
-
-              <div className="glass-card stat-card">
-                <div className="stat-icon bg-green-glow">
-                  <MapPin size={22} />
-                </div>
-                <div className="stat-value">{allLocations.length}</div>
-                <div className="stat-label">Tổng số vị trí ô</div>
-              </div>
-
-              <div className="glass-card stat-card">
-                <div className="stat-icon bg-pink-glow">
-                  <MapIcon size={22} />
-                </div>
-                <div className="stat-value">{warehouses.length}</div>
-                <div className="stat-label">Kho lưu trữ</div>
-              </div>
-
-              <div className="glass-card stat-card">
-                <div className="stat-icon bg-amber-glow">
-                  <RefreshCw size={22} />
-                </div>
-                <div className="stat-value">{syncOutbox.length}</div>
-                <div className="stat-label">Chờ đồng bộ Offline</div>
-              </div>
-            </div>
-
-            {/* Offline Sync Alert */}
-            {syncOutbox.length > 0 && (
-              <div className="glass-card flex-center justify-between" style={{ borderColor: 'var(--color-warning)', padding: '16px 24px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <AlertCircle className="text-warning" size={24} />
-                  <div>
-                    <h4 style={{ fontWeight: 700 }}>Có {syncOutbox.length} giao dịch ngoại tuyến chờ đồng bộ</h4>
-                    <p className="text-muted" style={{ fontSize: '0.82rem' }}>Dữ liệu đã được lưu an toàn trong IndexedDB của máy và sẽ tự động đẩy lên Supabase khi có mạng.</p>
+            <div className="page-header d-print-none">
+              <div className="container-xl">
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <div className="page-pretitle">HỆ THỐNG QUẢN LÝ KHO NHỰT LÚA</div>
+                    <h2 className="page-title d-flex align-items-center gap-2">
+                      <LayoutDashboard size={24} className="text-primary" /> Bảng điều khiển Tổng quan
+                    </h2>
+                  </div>
+                  <div className="col-auto ms-auto d-print-none">
+                    <div className="btn-list">
+                      <button className="btn btn-outline-secondary btn-sm" onClick={loadData} disabled={isLoading}>
+                        <RefreshCw size={14} className={isLoading ? 'animate-spin me-1' : 'me-1'} /> Làm mới
+                      </button>
+                      <button className="btn btn-primary btn-sm" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
+                        <PackagePlus size={14} className="me-1" /> Nhập Lô Mới
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <button className="btn btn-primary" style={{ width: 'auto' }} onClick={handleManualSync} disabled={isLoading}>
-                  <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} /> Đồng bộ ngay
-                </button>
-              </div>
-            )}
-
-            {/* Quick Actions */}
-            <div className="glass-card">
-              <h3 style={{ marginBottom: '16px', fontSize: '1.1rem', fontWeight: 700 }}>Thao tác nhanh</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                <button className="btn btn-primary" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
-                  <QrCode size={18} /> Di chuyển sản phẩm
-                </button>
-                <button className="btn btn-secondary" onClick={() => setActiveTab('maps')}>
-                  <MapIcon size={18} /> Xem Bản đồ Vệ tinh
-                </button>
-                <button className="btn btn-secondary" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
-                  <Printer size={18} /> In mã QR dán ô
-                </button>
               </div>
             </div>
+
+            <main className="page-body">
+              <div className="container-xl">
+                {/* 4 Canonical Tabler Stat Cards */}
+                <div className="row row-cards mb-4">
+                  <div className="col-sm-6 col-lg-3">
+                    <div className="card card-sm">
+                      <div className="card-body">
+                        <div className="row align-items-center">
+                          <div className="col-auto">
+                            <span className="avatar bg-primary-lt">
+                              <FileText size={22} />
+                            </span>
+                          </div>
+                          <div className="col">
+                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{products.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Sản phẩm quản lý</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-sm-6 col-lg-3">
+                    <div className="card card-sm">
+                      <div className="card-body">
+                        <div className="row align-items-center">
+                          <div className="col-auto">
+                            <span className="avatar bg-success-lt">
+                              <MapPin size={22} />
+                            </span>
+                          </div>
+                          <div className="col">
+                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{allLocations.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Tổng ô vị trí trên kệ</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-sm-6 col-lg-3">
+                    <div className="card card-sm">
+                      <div className="card-body">
+                        <div className="row align-items-center">
+                          <div className="col-auto">
+                            <span className="avatar bg-azure-lt">
+                              <MapIcon size={22} />
+                            </span>
+                          </div>
+                          <div className="col">
+                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{warehouses.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Khu kho định vị GPS</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="col-sm-6 col-lg-3">
+                    <div className="card card-sm">
+                      <div className="card-body">
+                        <div className="row align-items-center">
+                          <div className="col-auto">
+                            <span className="avatar bg-warning-lt">
+                              <RefreshCw size={22} />
+                            </span>
+                          </div>
+                          <div className="col">
+                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{syncOutbox.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Chờ đồng bộ Offline</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Offline Sync Alert */}
+                {syncOutbox.length > 0 && (
+                  <div className="card border-warning mb-4" style={{ background: '#fffbeb' }}>
+                    <div className="card-body d-flex align-items-center justify-content-between flex-wrap gap-2">
+                      <div className="d-flex align-items-center gap-3">
+                        <AlertCircle className="text-warning" size={26} />
+                        <div>
+                          <h4 className="card-title text-warning m-0">Có {syncOutbox.length} giao dịch ngoại tuyến chờ đồng bộ</h4>
+                          <div className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                            Dữ liệu đã được lưu an toàn trong IndexedDB của máy và sẽ tự động đẩy lên Supabase khi có mạng.
+                          </div>
+                        </div>
+                      </div>
+                      <button className="btn btn-warning btn-sm" onClick={handleManualSync} disabled={isLoading}>
+                        <RefreshCw size={14} className={isLoading ? 'animate-spin me-1' : 'me-1'} /> Đồng bộ ngay
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Actions Card */}
+                <div className="card mb-4">
+                  <div className="card-header">
+                    <h3 className="card-title">⚡ Thao tác nhanh</h3>
+                  </div>
+                  <div className="card-body">
+                    <div className="row g-2">
+                      <div className="col-6 col-md-3">
+                        <button className="btn btn-primary w-100 py-2" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
+                          <QrCode size={16} className="me-1" /> Di chuyển sản phẩm
+                        </button>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <button className="btn btn-outline-primary w-100 py-2" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
+                          <PackagePlus size={16} className="me-1" /> Nhập Lô / SP Mới
+                        </button>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <button className="btn btn-outline-secondary w-100 py-2" onClick={() => setActiveTab('maps')}>
+                          <MapIcon size={16} className="me-1" /> Bản đồ Vệ tinh
+                        </button>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <button className="btn btn-outline-secondary w-100 py-2" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
+                          <Printer size={16} className="me-1" /> In mã QR dán ô
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Realtime Inventory Snapshot Table */}
+                <div className="card">
+                  <div className="card-header d-flex justify-content-between align-items-center">
+                    <h3 className="card-title">📦 Danh mục & Vị trí Lưu kho Hiện tại ({products.length} sản phẩm)</h3>
+                    <button className="btn btn-outline-secondary btn-sm" onClick={() => setActiveTab('search')}>
+                      <Search size={14} className="me-1" /> Tìm kiếm chi tiết
+                    </button>
+                  </div>
+                  <div className="table-responsive">
+                    <table className="table table-vcenter card-table table-striped table-hover">
+                      <thead>
+                        <tr>
+                          <th>Mã Sản Phẩm</th>
+                          <th>Tên Quy Cách</th>
+                          <th>Chiều dài</th>
+                          <th>Kho</th>
+                          <th>Ô Kệ Đang Lưu</th>
+                          <th className="w-1 text-end">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="text-center py-4 text-muted">
+                              Chưa có sản phẩm nào trong kho. Bấm "Nhập Hàng / SP Mới" để thêm ngay.
+                            </td>
+                          </tr>
+                        ) : (
+                          products.slice(0, 10).map((p) => {
+                            const curBinding = currentLocations.find(c => c.product_id === p.id);
+                            const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
+                            const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;
+
+                            return (
+                              <tr key={p.id}>
+                                <td>
+                                  <strong className="text-primary">{p.product_code}</strong>
+                                </td>
+                                <td>{p.name}</td>
+                                <td>
+                                  <span className="badge bg-azure-lt">{p.length_value} {p.length_unit}</span>
+                                </td>
+                                <td>
+                                  {curWh ? (
+                                    <span className="badge bg-secondary-lt" style={{ borderLeft: `3px solid ${curWh.color}` }}>
+                                      {curWh.code} - {curWh.name}
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted">—</span>
+                                  )}
+                                </td>
+                                <td>
+                                  {curLoc ? (
+                                    <span className="badge bg-success-lt font-weight-bold">Ô {curLoc.code}</span>
+                                  ) : (
+                                    <span className="badge bg-danger-lt">Chưa có ô</span>
+                                  )}
+                                </td>
+                                <td className="text-end">
+                                  <button
+                                    className="btn btn-outline-primary btn-sm"
+                                    onClick={() => {
+                                      setActiveTab('scanner');
+                                      resolveProductForMovement(p.product_code);
+                                    }}
+                                  >
+                                    Di chuyển
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </main>
           </div>
         )}
 
         {/* SCREEN: SCANNER / MOVEMENT FLOW */}
         {activeTab === 'scanner' && (
           <div>
-            <h2 className="screen-title"><QrCode /> Quy trình Di chuyển Sản phẩm (6 Bước Chuẩn)</h2>
-
-            {/* Step 1: Multi-Modal Product Identification */}
-            {movementStep === 'idle' && (
-              <div className="glass-card animate-fade-in">
-                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '8px', color: '#0f172a' }}>
-                  📦 Bước 1 & 2: Chọn / Quét Sản Phẩm Cần Di Chuyển
-                </h3>
-                <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: '16px' }}>
-                  Hỗ trợ <strong>Điền mã bằng tay</strong>, <strong>AI Vision OCR</strong>, <strong>Camera Barcode/QR</strong> hoặc <strong>Chọn nhanh danh mục</strong>.
-                </p>
-
-                {/* Sub-mode Tabs */}
-                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '16px' }}>
-                  <button
-                    type="button"
-                    className={`btn ${productInputMode === 'manual' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
-                    onClick={() => { stopProductBarcodeScanner(); setProductInputMode('manual'); }}
-                  >
-                    ⌨️ Điền mã tay
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ${productInputMode === 'ocr' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
-                    onClick={() => { stopProductBarcodeScanner(); setProductInputMode('ocr'); }}
-                  >
-                    📷 AI OCR Chụp tem
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ${productInputMode === 'barcode' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
-                    onClick={() => { setProductInputMode('barcode'); }}
-                  >
-                    🔍 Quét Barcode/QR
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ${productInputMode === 'catalog' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
-                    onClick={() => { stopProductBarcodeScanner(); setProductInputMode('catalog'); }}
-                  >
-                    ⚡ Danh mục sẵn có
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)', background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
-                    onClick={() => {
-                      setPrefilledImportCode(manualProductCodeInput.trim());
-                      setIsImportModalOpen(true);
-                    }}
-                    title="Nhập mới sản phẩm hoặc dán danh sách hàng loạt"
-                  >
-                    <PackagePlus size={15} /> ➕ Nhập Lô / SP Mới
-                  </button>
+            <div className="page-header d-print-none">
+              <div className="container-xl">
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <div className="page-pretitle">QUY TRÌNH LUÂN CHUYỂN KHO</div>
+                    <h2 className="page-title d-flex align-items-center gap-2">
+                      <QrCode size={24} className="text-primary" /> Di chuyển & Nhập xuất Vị trí
+                    </h2>
+                  </div>
+                  <div className="col-auto ms-auto d-print-none">
+                    <button className="btn btn-outline-secondary btn-sm" onClick={resetScannerFlow}>
+                      <RefreshCw size={14} className="me-1" /> Làm lại từ đầu
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </div>
 
-                {/* SUB-MODE 1: MANUAL TEXT INPUT */}
-                {productInputMode === 'manual' && (
-                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <form onSubmit={handleManualProductSubmit}>
-                      <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '6px', color: '#1e293b' }}>
-                        Nhập mã sản phẩm hoặc tên quy cách:
-                      </label>
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Ví dụ: e120.30, e100, p500.45..."
-                          value={manualProductCodeInput}
-                          onChange={(e) => setManualProductCodeInput(e.target.value)}
-                          autoFocus
-                        />
-                        <button type="submit" className="btn btn-primary" style={{ width: 'auto', whiteSpace: 'nowrap' }}>
-                          <CheckCircle size={16} /> Chọn mã
+            <main className="page-body">
+              <div className="container-xl">
+                {/* Step 1: Multi-Modal Product Identification */}
+                {movementStep === 'idle' && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="card-title">📦 Bước 1 & 2: Chọn / Quét Sản Phẩm Cần Di Chuyển</h3>
+                    </div>
+                    <div className="card-body">
+                      <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
+                        Hỗ trợ <strong>Điền mã bằng tay</strong>, <strong>AI Vision OCR Chụp tem</strong>, <strong>Camera Barcode/QR</strong> hoặc <strong>Chọn danh mục</strong>.
+                      </p>
+
+                      {/* Sub-mode Tabs */}
+                      <div className="btn-list mb-3">
+                        <button
+                          type="button"
+                          className={`btn ${productInputMode === 'manual' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                          onClick={() => { stopProductBarcodeScanner(); setProductInputMode('manual'); }}
+                        >
+                          ⌨️ Điền mã tay
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${productInputMode === 'ocr' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                          onClick={() => { stopProductBarcodeScanner(); setProductInputMode('ocr'); }}
+                        >
+                          📷 AI OCR Chụp tem
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${productInputMode === 'barcode' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                          onClick={() => { setProductInputMode('barcode'); }}
+                        >
+                          🔍 Quét Barcode/QR
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${productInputMode === 'catalog' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                          onClick={() => { stopProductBarcodeScanner(); setProductInputMode('catalog'); }}
+                        >
+                          ⚡ Danh mục sẵn có
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary"
+                          onClick={() => {
+                            setPrefilledImportCode(manualProductCodeInput.trim());
+                            setIsImportModalOpen(true);
+                          }}
+                        >
+                          <PackagePlus size={15} className="me-1" /> ➕ Nhập Lô / SP Mới
                         </button>
                       </div>
-                    </form>
 
-                    {/* Live Suggestion Chips as user types */}
-                    {manualProductCodeInput.trim() && (
-                      <div style={{ marginTop: '10px' }}>
-                        <span className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '6px' }}>
-                          Gợi ý tìm kiếm nhanh:
-                        </span>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                          {products
-                            .filter(p =>
-                              p.product_code.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase()) ||
-                              p.name.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase())
-                            )
-                            .map(p => (
-                              <button
-                                key={p.id}
-                                type="button"
-                                className="btn btn-secondary"
-                                style={{ width: 'auto', padding: '4px 10px', fontSize: '0.78rem', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
-                                onClick={() => resolveProductForMovement(p.product_code)}
-                              >
-                                👉 <strong>{p.product_code}</strong> ({p.name})
+                      {/* SUB-MODE 1: MANUAL TEXT INPUT */}
+                      {productInputMode === 'manual' && (
+                        <div className="p-3 bg-light rounded border">
+                          <form onSubmit={handleManualProductSubmit}>
+                            <label className="form-label required">
+                              Nhập mã sản phẩm hoặc tên quy cách:
+                            </label>
+                            <div className="d-flex gap-2 mb-3">
+                              <input
+                                type="text"
+                                className="form-control"
+                                placeholder="Ví dụ: e120.30, e100, p500.45..."
+                                value={manualProductCodeInput}
+                                onChange={(e) => setManualProductCodeInput(e.target.value)}
+                                autoFocus
+                              />
+                              <button type="submit" className="btn btn-primary text-nowrap">
+                                <CheckCircle size={16} className="me-1" /> Chọn mã
                               </button>
-                            ))}
-                        </div>
-
-                        {/* Quick Inbound Shortcut for new untracked product */}
-                        <div style={{ padding: '10px 12px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                          <span style={{ fontSize: '0.8rem', color: '#1e40af' }}>
-                            ✨ Chưa có mã <strong>[{manualProductCodeInput.trim()}]</strong> trong kho?
-                          </span>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            style={{ width: 'auto', padding: '4px 12px', fontSize: '0.78rem', background: '#2563eb' }}
-                            onClick={() => {
-                              setPrefilledImportCode(manualProductCodeInput.trim());
-                              setIsImportModalOpen(true);
-                            }}
-                          >
-                            <PackagePlus size={14} /> ➕ Nhập Mới Sản Phẩm Này
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* SUB-MODE 2: AI OCR CAMERA / UPLOAD */}
-                {productInputMode === 'ocr' && (
-                  <div>
-                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                      <label className="btn btn-primary" style={{ width: 'auto', cursor: 'pointer' }}>
-                        <Camera size={18} /> Chụp tem sản phẩm
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              handleOcrImageSelected(e.target.files[0]);
-                            }
-                          }}
-                        />
-                      </label>
-
-                      <label className="btn btn-secondary" style={{ width: 'auto', cursor: 'pointer' }}>
-                        <Upload size={18} /> Chọn ảnh từ bộ nhớ
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files[0]) {
-                              handleOcrImageSelected(e.target.files[0]);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    {ocrStatus === 'loading' && (
-                      <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: '#eff6ff', borderRadius: '6px' }}>
-                        <RefreshCw size={18} className="animate-spin text-primary" />
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>AI Vision đang đọc & nhận diện ký tự tem...</span>
-                      </div>
-                    )}
-
-                    {ocrPreviewUrl && (
-                      <div style={{ marginTop: '14px' }}>
-                        <img src={ocrPreviewUrl} alt="OCR Preview" style={{ maxHeight: '160px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* SUB-MODE 3: LIVE BARCODE / QR SCANNER */}
-                {productInputMode === 'barcode' && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div id="product-barcode-target" style={{ width: '100%', maxWidth: '360px', margin: '0 auto 12px' }} />
-
-                    {!isProductBarcodeScannerActive ? (
-                      <button className="btn btn-primary" style={{ width: 'auto', margin: '0 auto' }} onClick={startProductBarcodeScanner}>
-                        <Camera size={16} /> Bật Camera Quét Barcode / QR
-                      </button>
-                    ) : (
-                      <button className="btn btn-secondary" style={{ width: 'auto', margin: '0 auto' }} onClick={stopProductBarcodeScanner}>
-                        Tắt Camera Quét
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* SUB-MODE 4: CATALOG LIST (GROUPED BY LENGTH) */}
-                {productInputMode === 'catalog' && (
-                  <div>
-                    <span className="text-muted" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '10px' }}>
-                      Bấm vào sản phẩm bên dưới để bắt đầu di chuyển:
-                    </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-                      {products.map(p => {
-                        const curBinding = currentLocations.find(c => c.product_id === p.id);
-                        const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
-                        const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;
-
-                        return (
-                          <div
-                            key={p.id}
-                            style={{
-                              padding: '12px',
-                              background: '#f8fafc',
-                              border: '1.5px solid #e2e8f0',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onClick={() => resolveProductForMovement(p.product_code)}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{p.product_code}</strong>
-                              <span className="badge badge-completed" style={{ fontSize: '0.7rem' }}>
-                                {p.length_value} {p.length_unit}
-                              </span>
                             </div>
-                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '6px' }}>{p.name}</div>
-                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: curLoc ? '#059669' : '#dc2626' }}>
-                              📍 {curLoc ? `${curWh?.code || ''} - Ô ${curLoc.code}` : 'Chưa có vị trí'}
+                          </form>
+
+                          {/* Live Suggestion Chips */}
+                          {manualProductCodeInput.trim() && (
+                            <div className="mt-2">
+                              <span className="form-hint mb-2">Gợi ý tìm kiếm nhanh:</span>
+                              <div className="d-flex gap-1 flex-wrap mb-3">
+                                {products
+                                  .filter(p =>
+                                    p.product_code.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase()) ||
+                                    p.name.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase())
+                                  )
+                                  .map(p => (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      className="btn btn-outline-primary btn-sm"
+                                      onClick={() => resolveProductForMovement(p.product_code)}
+                                    >
+                                      👉 <strong>{p.product_code}</strong> ({p.name})
+                                    </button>
+                                  ))}
+                              </div>
+
+                              {/* Quick Inbound Shortcut */}
+                              <div className="p-2 bg-white rounded border d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <span style={{ fontSize: '0.82rem', color: '#0054a6' }}>
+                                  ✨ Chưa có mã <strong>[{manualProductCodeInput.trim()}]</strong> trong kho?
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => {
+                                    setPrefilledImportCode(manualProductCodeInput.trim());
+                                    setIsImportModalOpen(true);
+                                  }}
+                                >
+                                  <PackagePlus size={14} className="me-1" /> ➕ Nhập Mới Sản Phẩm Này
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* SUB-MODE 2: AI OCR CAMERA / UPLOAD */}
+                      {productInputMode === 'ocr' && (
+                        <div>
+                          <div className="d-flex gap-2 flex-wrap mb-3">
+                            <label className="btn btn-primary cursor-pointer">
+                              <Camera size={18} className="me-1" /> Chụp tem sản phẩm
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    handleOcrImageSelected(e.target.files[0]);
+                                  }
+                                }}
+                              />
+                            </label>
+
+                            <label className="btn btn-outline-secondary cursor-pointer">
+                              <Upload size={18} className="me-1" /> Chọn ảnh từ bộ nhớ
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files[0]) {
+                                    handleOcrImageSelected(e.target.files[0]);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+
+                          {ocrStatus === 'loading' && (
+                            <div className="alert alert-info d-flex align-items-center gap-2">
+                              <RefreshCw size={18} className="animate-spin text-primary" />
+                              <span className="font-weight-medium">AI Vision đang đọc & nhận diện ký tự tem...</span>
+                            </div>
+                          )}
+
+                          {ocrPreviewUrl && (
+                            <div className="mt-3">
+                              <img src={ocrPreviewUrl} alt="OCR Preview" className="img-thumbnail" style={{ maxHeight: '180px' }} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* SUB-MODE 3: LIVE BARCODE / QR SCANNER */}
+                      {productInputMode === 'barcode' && (
+                        <div className="text-center py-2">
+                          <div id="product-barcode-target" style={{ width: '100%', maxWidth: '360px', margin: '0 auto 12px' }} />
+
+                          {!isProductBarcodeScannerActive ? (
+                            <button className="btn btn-primary" onClick={startProductBarcodeScanner}>
+                              <Camera size={16} className="me-1" /> Bật Camera Quét Barcode / QR
+                            </button>
+                          ) : (
+                            <button className="btn btn-outline-secondary" onClick={stopProductBarcodeScanner}>
+                              Tắt Camera Quét
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* SUB-MODE 4: CATALOG LIST */}
+                      {productInputMode === 'catalog' && (
+                        <div>
+                          <span className="form-hint mb-3 d-block">
+                            Bấm vào sản phẩm bên dưới để bắt đầu di chuyển:
+                          </span>
+                          <div className="row g-2">
+                            {products.map(p => {
+                              const curBinding = currentLocations.find(c => c.product_id === p.id);
+                              const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
+                              const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;
+
+                              return (
+                                <div key={p.id} className="col-sm-6 col-md-4 col-lg-3">
+                                  <div
+                                    className="card card-sm h-100 cursor-pointer"
+                                    onClick={() => resolveProductForMovement(p.product_code)}
+                                    style={{ border: '1px solid #cbd5e1' }}
+                                  >
+                                    <div className="card-body p-3">
+                                      <div className="d-flex justify-content-between align-items-center mb-1">
+                                        <strong className="text-primary" style={{ fontSize: '0.95rem' }}>{p.product_code}</strong>
+                                        <span className="badge bg-azure-lt">{p.length_value} {p.length_unit}</span>
+                                      </div>
+                                      <div className="text-muted small mb-2">{p.name}</div>
+                                      <div className="small font-weight-bold" style={{ color: curLoc ? '#2fb344' : '#d63939' }}>
+                                        📍 {curLoc ? `${curWh?.code || ''} - Ô ${curLoc.code}` : 'Chưa có vị trí'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 2: Product Details & Current Location */}
+                {movementStep === 'product_selected' && activeProduct && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="card-title">📦 Bước 3: Thông tin Sản phẩm & Vị trí Hiện tại</h3>
+                    </div>
+                    <div className="card-body">
+                      <div className="p-3 bg-light rounded border mb-3">
+                        <div className="row g-3">
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Mã sản phẩm:</span>
+                            <div className="font-weight-bold text-primary" style={{ fontSize: '1.2rem' }}>{activeProduct.product_code}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Tên quy cách:</span>
+                            <div className="font-weight-medium">{activeProduct.name}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Chiều dài:</span>
+                            <div className="font-weight-bold text-azure">{activeProduct.length_value} {activeProduct.length_unit}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Vị trí lưu kho hiện tại:</span>
+                            <div className="font-weight-bold" style={{ color: activeFromLocation ? '#2fb344' : '#d63939' }}>
+                              {activeFromLocation ? `${activeFromWarehouse?.code || ''} - Ô ${activeFromLocation.code}` : 'Chưa có vị trí (Nhập mới)'}
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      </div>
+
+                      <div className="btn-list">
+                        <button className="btn btn-outline-secondary" onClick={resetScannerFlow}>
+                          Hủy & Quét lại
+                        </button>
+                        <button className="btn btn-primary" onClick={handleStartMove}>
+                          <ArrowRight size={16} className="me-1" /> BẮT ĐẦU LẤY SẢN PHẨM
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Moving & Scan Destination QR */}
+                {movementStep === 'moving' && activeProduct && (
+                  <div className="card">
+                    <div className="card-header">
+                      <h3 className="card-title text-warning">
+                        <RefreshCw size={18} className="animate-spin me-2" /> Bước 4 & 5: Đang di chuyển [{activeProduct.product_code}]
+                      </h3>
+                    </div>
+                    <div className="card-body">
+                      <p className="text-muted mb-3">
+                        Mang sản phẩm tới vị trí mới và quét mã QR dán tại ô kệ đích.
+                      </p>
+
+                      {/* QR Scanner Camera Target */}
+                      <div id="qr-reader-target" style={{ width: '100%', maxWidth: '380px', margin: '0 auto 16px' }} />
+
+                      <div className="d-flex justify-content-center mb-3">
+                        {!isQrScannerActive ? (
+                          <button className="btn btn-primary" onClick={startCameraQrScanner}>
+                            <Camera size={16} className="me-1" /> Bật Camera Quét QR Kệ
+                          </button>
+                        ) : (
+                          <button className="btn btn-outline-secondary" onClick={stopCameraQrScanner}>
+                            Tắt Camera
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Manual Input or Quick Select */}
+                      <div className="p-3 bg-light rounded border">
+                        <span className="form-hint mb-2 d-block">Hoặc chọn nhanh vị trí kệ đích:</span>
+                        <div className="d-flex gap-1 flex-wrap">
+                          {allLocations.map(l => (
+                            <button
+                              key={l.id}
+                              type="button"
+                              className="btn btn-outline-secondary btn-sm"
+                              onClick={() => resolveDestinationLocation(l.id)}
+                            >
+                              {l.code}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 4: Confirm Destination & Complete */}
+                {movementStep === 'destination_scanned' && activeProduct && activeToLocation && (
+                  <div className="card border-success">
+                    <div className="card-header bg-success-lt">
+                      <h3 className="card-title text-success">🏁 Bước 6: Xác nhận & Hoàn tất Di chuyển</h3>
+                    </div>
+                    <div className="card-body">
+                      <div className="p-3 bg-light rounded border mb-3">
+                        <div className="row g-3">
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Sản phẩm:</span>
+                            <div className="font-weight-bold" style={{ fontSize: '1.15rem' }}>{activeProduct.product_code}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Kho đích:</span>
+                            <div className="font-weight-bold">{activeToWarehouse ? `${activeToWarehouse.code} - ${activeToWarehouse.name}` : ''}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Phân khu / Dãy:</span>
+                            <div className="font-weight-bold text-azure">{activeToZone ? activeToZone.name : 'Mặc định'}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Vị trí ô đích:</span>
+                            <div className="font-weight-bold text-success" style={{ fontSize: '1.2rem' }}>Ô {activeToLocation.code}</div>
+                          </div>
+                        </div>
+
+                        {destinationGps && (
+                          <div className="mt-3 pt-2 border-top small text-muted">
+                            📍 Tọa độ GPS ghi nhận: <strong>{destinationGps.lat.toFixed(6)}, {destinationGps.lng.toFixed(6)}</strong> (Độ chính xác: &plusmn;{Math.round(destinationGps.accuracy || 0)}m)
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="btn-list">
+                        <button className="btn btn-outline-secondary" onClick={() => setMovementStep('moving')}>
+                          Quét vị trí khác
+                        </button>
+                        <button className="btn btn-success" onClick={handleFinalizeMovement} disabled={isLoading}>
+                          <CheckCircle size={16} className="me-1" /> KẾT THÚC & LƯU VỊ TRÍ
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: Completed */}
+                {movementStep === 'completed' && (
+                  <div className="card text-center py-4">
+                    <div className="card-body">
+                      <CheckCircle size={52} className="text-success mb-3" />
+                      <h3 className="card-title justify-content-center mb-2" style={{ fontSize: '1.3rem' }}>
+                        Giao dịch Di chuyển Thành công!
+                      </h3>
+                      <p className="text-muted mb-4">
+                        Dữ liệu đã được cập nhật nguyên tử (Atomic Update) vào Supabase và bộ nhớ ngoại tuyến.
+                      </p>
+                      <button className="btn btn-primary" onClick={resetScannerFlow}>
+                        Thực hiện di chuyển khác
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
-            )}
-
-            {/* Step 2: Product Details & Current Location */}
-            {movementStep === 'product_selected' && activeProduct && (
-              <div className="glass-card animate-fade-in">
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '14px' }}>
-                  📦 Bước 3: Thông tin Sản phẩm & Vị trí Hiện tại
-                </h3>
-
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Mã sản phẩm:</span>
-                      <h4 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#0f172a' }}>{activeProduct.product_code}</h4>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Tên quy cách:</span>
-                      <div style={{ fontWeight: 600 }}>{activeProduct.name}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Chiều dài:</span>
-                      <div style={{ fontWeight: 700, color: '#2563eb' }}>{activeProduct.length_value} {activeProduct.length_unit}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Vị trí lưu kho hiện tại:</span>
-                      <div style={{ fontWeight: 800, color: activeFromLocation ? '#059669' : '#dc2626' }}>
-                        {activeFromLocation ? `${activeFromWarehouse?.code || ''} - Ô ${activeFromLocation.code}` : 'Chưa có vị trí (Nhập mới)'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={resetScannerFlow}>
-                    Hủy & Quét lại
-                  </button>
-                  <button className="btn btn-primary" style={{ width: 'auto' }} onClick={handleStartMove}>
-                    <ArrowRight size={16} /> BẮT ĐẦU LẤY SẢN PHẨM
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Moving & Scan Destination QR */}
-            {movementStep === 'moving' && activeProduct && (
-              <div className="glass-card animate-fade-in">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                  <div className="stat-icon bg-amber-glow" style={{ width: '36px', height: '36px' }}>
-                    <RefreshCw size={18} className="animate-spin" />
-                  </div>
-                  <div>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Bước 4 & 5: Đang di chuyển [{activeProduct.product_code}]</h3>
-                    <p className="text-muted" style={{ fontSize: '0.82rem' }}>Mang sản phẩm tới vị trí mới và quét mã QR dán tại ô kệ đích.</p>
-                  </div>
-                </div>
-
-                {/* QR Scanner Camera Target */}
-                <div id="qr-reader-target" style={{ width: '100%', maxWidth: '380px', margin: '0 auto 16px' }} />
-
-                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '16px' }}>
-                  {!isQrScannerActive ? (
-                    <button className="btn btn-primary" style={{ width: 'auto' }} onClick={startCameraQrScanner}>
-                      <Camera size={16} /> Bật Camera Quét QR Kệ
-                    </button>
-                  ) : (
-                    <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={stopCameraQrScanner}>
-                      Tắt Camera
-                    </button>
-                  )}
-                </div>
-
-                {/* Manual Input or Quick Select */}
-                <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <span className="text-muted" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '6px' }}>
-                    Hoặc chọn nhanh vị trí kệ đích:
-                  </span>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {allLocations.map(l => (
-                      <button
-                        key={l.id}
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ width: 'auto', padding: '4px 10px', fontSize: '0.75rem' }}
-                        onClick={() => resolveDestinationLocation(l.id)}
-                      >
-                        {l.code}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Confirm Destination & Complete */}
-            {movementStep === 'destination_scanned' && activeProduct && activeToLocation && (
-              <div className="glass-card animate-fade-in">
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '14px' }}>
-                  🏁 Bước 6: Xác nhận & Hoàn tất Di chuyển
-                </h3>
-
-                <div style={{ background: '#ecfdf5', border: '1.5px solid #a7f3d0', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Sản phẩm:</span>
-                      <h4 style={{ fontSize: '1.15rem', fontWeight: 800 }}>{activeProduct.product_code}</h4>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Kho đích:</span>
-                      <div style={{ fontWeight: 700 }}>{activeToWarehouse ? `${activeToWarehouse.code} - ${activeToWarehouse.name}` : ''}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Phân khu / Dãy:</span>
-                      <div style={{ fontWeight: 700, color: '#2563eb' }}>{activeToZone ? activeToZone.name : 'Mặc định'}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Vị trí ô đích:</span>
-                      <div style={{ fontWeight: 900, color: '#059669', fontSize: '1.1rem' }}>Ô {activeToLocation.code}</div>
-                    </div>
-                  </div>
-
-                  {destinationGps && (
-                    <div style={{ marginTop: '12px', fontSize: '0.78rem', color: '#475569', borderTop: '1px solid #d1fae5', paddingTop: '8px' }}>
-                      📍 Tọa độ GPS ghi nhận: <strong>{destinationGps.lat.toFixed(6)}, {destinationGps.lng.toFixed(6)}</strong> (Độ chính xác: &plusmn;{Math.round(destinationGps.accuracy || 0)}m)
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => setMovementStep('moving')}>
-                    Quét vị trí khác
-                  </button>
-                  <button className="btn btn-success" style={{ width: 'auto' }} onClick={handleFinalizeMovement} disabled={isLoading}>
-                    <CheckCircle size={16} /> KẾT THÚC & LƯU VỊ TRÍ
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Completed */}
-            {movementStep === 'completed' && (
-              <div className="glass-card animate-fade-in text-center" style={{ padding: '30px 20px' }}>
-                <CheckCircle size={48} className="text-success" style={{ margin: '0 auto 12px' }} />
-                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a' }}>Giao dịch Di chuyển Thành công!</h3>
-                <p className="text-muted" style={{ fontSize: '0.88rem', marginBottom: '20px' }}>
-                  Dữ liệu đã được cập nhật nguyên tử (Atomic Update) vào Supabase và bộ nhớ ngoại tuyến.
-                </p>
-                <button className="btn btn-primary" style={{ width: 'auto', margin: '0 auto' }} onClick={resetScannerFlow}>
-                  Thực hiện di chuyển khác
-                </button>
-              </div>
-            )}
+            </main>
           </div>
         )}
 
         {/* SCREEN: MAPS */}
         {activeTab === 'maps' && (
           <div>
-            <h2 className="screen-title"><MapIcon /> Bản đồ Vệ tinh Không gian Thực (Google Hybrid)</h2>
-            <WarehouseSatelliteMap
-              warehouses={warehouses}
-              zones={zones}
-              allLocations={allLocations}
-              products={products}
-              currentLocations={currentLocations}
-              movementsHistory={movementsHistory}
-              onOpenPartitionModal={(whId) => {
-                setPartitionInitialWarehouseId(whId);
-                setIsPartitionModalOpen(true);
-              }}
-              onDataChanged={loadData}
-            />
+            <div className="page-header d-print-none">
+              <div className="container-xl">
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <div className="page-pretitle">BẢN ĐỒ KHÔNG GIAN THỰC</div>
+                    <h2 className="page-title d-flex align-items-center gap-2">
+                      <MapIcon size={24} className="text-primary" /> Bản đồ Vệ tinh Kho & Ô Kệ (Google Hybrid)
+                    </h2>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <main className="page-body">
+              <div className="container-xl">
+                <WarehouseSatelliteMap
+                  warehouses={warehouses}
+                  zones={zones}
+                  allLocations={allLocations}
+                  products={products}
+                  currentLocations={currentLocations}
+                  movementsHistory={movementsHistory}
+                  onOpenPartitionModal={(whId) => {
+                    setPartitionInitialWarehouseId(whId);
+                    setIsPartitionModalOpen(true);
+                  }}
+                  onDataChanged={loadData}
+                />
+              </div>
+            </main>
           </div>
         )}
 
         {/* SCREEN: SEARCH */}
         {activeTab === 'search' && (
           <div>
-            <h2 className="screen-title"><Search /> Tìm kiếm Sản phẩm & Vị trí Lưu kho</h2>
-            
-            <div className="glass-card">
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Nhập mã sản phẩm (VD: e120.30, p500.45)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && triggerSearch()}
-                />
-                <button className="btn btn-primary" style={{ width: 'auto' }} onClick={triggerSearch}>
-                  Tìm kiếm
-                </button>
-              </div>
-
-              {searchResult && (
-                <div style={{ marginTop: '20px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 800 }}>{searchResult.product.product_code}</h3>
-                    <span className="badge badge-completed">Đang lưu kho</span>
+            <div className="page-header d-print-none">
+              <div className="container-xl">
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <div className="page-pretitle">TRA CỨU VỊ TRÍ & LỊCH SỬ</div>
+                    <h2 className="page-title d-flex align-items-center gap-2">
+                      <Search size={24} className="text-primary" /> Tra cứu Vị trí Sản phẩm & Tồn kho
+                    </h2>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Tên sản phẩm:</span>
-                      <div><strong>{searchResult.product.name}</strong></div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Quy cách chiều dài:</span>
-                      <div className="text-primary"><strong>{searchResult.product.length_value} {searchResult.product.length_unit}</strong></div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Kho:</span>
-                      <div><strong>{searchResult.warehouse?.name || 'N/A'}</strong></div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Phân khu:</span>
-                      <div><strong>{searchResult.zone?.name || 'N/A'}</strong></div>
-                    </div>
-                    <div>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>Vị trí ô:</span>
-                      <div className="text-success"><strong>{searchResult.currentLocation?.code || 'Chưa có'}</strong></div>
-                    </div>
-                  </div>
-
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: 700, marginBottom: '8px' }}>Lịch sử luân chuyển ({searchResult.history.length} lần):</h4>
-                  {searchResult.history.length === 0 ? (
-                    <p className="text-muted" style={{ fontSize: '0.8rem' }}>Chưa có lịch sử di chuyển.</p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {searchResult.history.map(h => (
-                        <div key={h.id} style={{ fontSize: '0.8rem', padding: '6px 10px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '4px' }}>
-                          📅 {new Date(h.created_at).toLocaleString('vi-VN')} &bull; Người thực hiện: <strong>{h.user_name}</strong>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              )}
+              </div>
             </div>
+
+            <main className="page-body">
+              <div className="container-xl">
+                <div className="card mb-4">
+                  <div className="card-body">
+                    <div className="d-flex gap-2">
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Nhập mã sản phẩm (VD: e120.30, p500.45)..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && triggerSearch()}
+                      />
+                      <button className="btn btn-primary text-nowrap" onClick={triggerSearch}>
+                        <Search size={16} className="me-1" /> Tìm kiếm
+                      </button>
+                    </div>
+
+                    {searchResult && (
+                      <div className="mt-4 p-3 bg-light rounded border">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                          <h3 className="font-weight-bold text-primary m-0" style={{ fontSize: '1.25rem' }}>
+                            {searchResult.product.product_code}
+                          </h3>
+                          <span className="badge bg-success-lt">Đang lưu kho</span>
+                        </div>
+                        <div className="row g-3 mb-3">
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Tên sản phẩm:</span>
+                            <div className="font-weight-medium">{searchResult.product.name}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Quy cách chiều dài:</span>
+                            <div className="font-weight-bold text-azure">{searchResult.product.length_value} {searchResult.product.length_unit}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Kho:</span>
+                            <div className="font-weight-medium">{searchResult.warehouse?.name || 'N/A'}</div>
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <span className="form-hint">Vị trí ô:</span>
+                            <div className="font-weight-bold text-success">{searchResult.currentLocation?.code || 'Chưa có'}</div>
+                          </div>
+                        </div>
+
+                        <h4 className="card-title mb-2">Lịch sử luân chuyển ({searchResult.history.length} lần):</h4>
+                        {searchResult.history.length === 0 ? (
+                          <p className="text-muted small m-0">Chưa có lịch sử di chuyển.</p>
+                        ) : (
+                          <div className="d-flex flex-column gap-1">
+                            {searchResult.history.map(h => (
+                              <div key={h.id} className="p-2 bg-white rounded border small">
+                                📅 {new Date(h.created_at).toLocaleString('vi-VN')} &bull; Người thực hiện: <strong>{h.user_name}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </main>
           </div>
         )}
 
         {/* SCREEN: HISTORY */}
         {activeTab === 'history' && (
           <div>
-            <h2 className="screen-title"><History /> Nhật ký Luân chuyển Sản phẩm</h2>
-            <div className="glass-card">
-              {movementsHistory.length === 0 ? (
-                <p className="text-muted text-center" style={{ padding: '30px 0' }}>Chưa có nhật ký di chuyển nào.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {movementsHistory.map(m => {
-                    const prod = products.find(p => p.id === m.product_id);
-                    const fromLoc = allLocations.find(l => l.id === m.from_location_id);
-                    const toLoc = allLocations.find(l => l.id === m.to_location_id);
-                    return (
-                      <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                        <div>
-                          <strong>📦 {prod ? prod.product_code : m.product_id.substring(0, 8)}</strong>
-                          <span style={{ marginLeft: '12px', color: '#059669', fontWeight: 600 }}>
-                            {fromLoc ? fromLoc.code : 'Nhập mới'} &rarr; {toLoc ? toLoc.code : 'N/A'}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                          {new Date(m.created_at).toLocaleString('vi-VN')} &bull; {m.user_name}
-                        </div>
-                      </div>
-                    );
-                  })}
+            <div className="page-header d-print-none">
+              <div className="container-xl">
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <div className="page-pretitle">NHẬT KÝ KIỂM TOÁN</div>
+                    <h2 className="page-title d-flex align-items-center gap-2">
+                      <History size={24} className="text-primary" /> Nhật ký Luân chuyển & Xuất Nhập Kho
+                    </h2>
+                  </div>
+                  <div className="col-auto ms-auto d-print-none">
+                    <button className="btn btn-outline-secondary btn-sm" onClick={loadData}>
+                      <RefreshCw size={14} className="me-1" /> Tải lại
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
+
+            <main className="page-body">
+              <div className="container-xl">
+                <div className="card">
+                  <div className="table-responsive">
+                    <table className="table table-vcenter card-table table-striped table-hover">
+                      <thead>
+                        <tr>
+                          <th>Thời gian</th>
+                          <th>Mã Sản Phẩm</th>
+                          <th>Hành trình Di chuyển</th>
+                          <th>Người thực hiện</th>
+                          <th>Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {movementsHistory.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="text-center py-4 text-muted">
+                              Chưa có lịch sử di chuyển nào được ghi nhận.
+                            </td>
+                          </tr>
+                        ) : (
+                          movementsHistory.map(m => {
+                            const prod = products.find(p => p.id === m.product_id);
+                            const fromLoc = allLocations.find(l => l.id === m.from_location_id);
+                            const toLoc = allLocations.find(l => l.id === m.to_location_id);
+
+                            return (
+                              <tr key={m.id}>
+                                <td className="text-muted small">
+                                  {new Date(m.created_at).toLocaleString('vi-VN')}
+                                </td>
+                                <td>
+                                  <strong className="text-primary">
+                                    {prod ? prod.product_code : m.product_id.substring(0, 8)}
+                                  </strong>
+                                </td>
+                                <td>
+                                  <span className="font-weight-medium text-success">
+                                    {fromLoc ? `Ô ${fromLoc.code}` : 'Nhập mới'} &rarr; {toLoc ? `Ô ${toLoc.code}` : 'N/A'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="badge bg-secondary-lt">{m.user_name || 'Hệ thống'}</span>
+                                </td>
+                                <td>
+                                  <span className="badge bg-success-lt">Thành công</span>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </main>
           </div>
         )}
 
         {/* SCREEN: SETTINGS */}
         {activeTab === 'settings' && (
           <div>
-            <h2 className="screen-title"><SettingsIcon /> Cấu hình Hệ thống & Kết nối Supabase</h2>
-            
-            {/* Server Connection Status Card */}
-            <div className="glass-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a' }}>
-                  <Database size={20} className="text-primary" /> Trạng thái Máy chủ
-                </h3>
-                {isDbOnline ? (
-                  <span className="badge badge-completed" style={{ fontSize: '0.82rem', padding: '6px 14px' }}>
-                    🟢 Đã kết nối Supabase (Realtime Online)
-                  </span>
-                ) : (
-                  <span className="badge badge-started" style={{ fontSize: '0.82rem', padding: '6px 14px' }}>
-                    🟡 Chế độ Ngoại tuyến (IndexedDB)
-                  </span>
-                )}
-              </div>
-
-              {/* Data Overview Stats */}
-              <div className="stats-grid" style={{ marginBottom: '16px' }}>
-                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
-                  <span className="stat-label">Tổng số kho:</span>
-                  <span className="stat-value" style={{ fontSize: '1.4rem' }}>{warehouses.length}</span>
-                </div>
-                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
-                  <span className="stat-label">Tổng số phân khu:</span>
-                  <span className="stat-value" style={{ fontSize: '1.4rem' }}>{zones.length}</span>
-                </div>
-                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
-                  <span className="stat-label">Tổng số ô vị trí:</span>
-                  <span className="stat-value" style={{ fontSize: '1.4rem' }}>{allLocations.length}</span>
-                </div>
-                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
-                  <span className="stat-label">Sản phẩm:</span>
-                  <span className="stat-value text-success" style={{ fontSize: '1.4rem' }}>
-                    {products.length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Supabase Connection Settings Form */}
-              <div style={{ marginTop: '20px', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', color: '#0f172a' }}>
-                  ⚙️ Thông tin Kết nối Supabase
-                </h4>
-                
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                      Project URL:
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={supabaseForm.url}
-                      onChange={(e) => setSupabaseForm({ ...supabaseForm, url: e.target.value })}
-                      placeholder="https://xyzcompany.supabase.co"
-                    />
+            <div className="page-header d-print-none">
+              <div className="container-xl">
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <div className="page-pretitle">HỆ THỐNG & ĐỒNG BỘ</div>
+                    <h2 className="page-title d-flex align-items-center gap-2">
+                      <SettingsIcon size={24} className="text-primary" /> Cấu hình Kết nối Supabase & Bộ nhớ Ngoại tuyến
+                    </h2>
                   </div>
-
-                  <div>
-                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                      Anon Public API Key:
-                    </label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={supabaseForm.key}
-                      onChange={(e) => setSupabaseForm({ ...supabaseForm, key: e.target.value })}
-                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: 'auto' }}
-                    onClick={async () => {
-                      saveCustomSupabaseConfig(supabaseForm.url, supabaseForm.key);
-                      showNotification('info', 'Đang kết nối lại Supabase...');
-                      await autoBootstrapSupabaseDatabase();
-                      await loadData();
-                      showNotification('success', 'Đã lưu cấu hình và kết nối Supabase thành công!');
-                    }}
-                  >
-                    💾 Lưu & Kết nối Supabase
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-success"
-                    style={{ width: 'auto' }}
-                    onClick={async () => {
-                      showNotification('info', 'Đang nạp dữ liệu sản phẩm và kho lên Supabase...');
-                      await autoBootstrapSupabaseDatabase();
-                      await loadData();
-                      showNotification('success', 'Đã nạp dữ liệu thành công!');
-                    }}
-                  >
-                    ⚡ Nạp/Đẩy dữ liệu mẫu lên Supabase
-                  </button>
-
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
-                    onClick={async () => {
-                      if (window.confirm('Khôi phục toàn bộ dữ liệu mẫu trong IndexedDB?')) {
-                        await resetLocalDatabase();
-                        await loadData();
-                        showNotification('success', 'Đã reset IndexedDB thành công!');
-                      }
-                    }}
-                  >
-                    Khôi phục Dữ liệu IndexedDB
-                  </button>
                 </div>
               </div>
             </div>
+
+            <main className="page-body">
+              <div className="container-xl">
+                <div className="card mb-4">
+                  <div className="card-header d-flex justify-content-between align-items-center">
+                    <h3 className="card-title">
+                      <Database size={18} className="text-primary me-2" /> Trạng thái Máy chủ & Cơ sở dữ liệu
+                    </h3>
+                    {isDbOnline ? (
+                      <span className="badge bg-success-lt font-weight-bold">
+                        🟢 Đã kết nối Supabase (Realtime Online)
+                      </span>
+                    ) : (
+                      <span className="badge bg-warning-lt font-weight-bold">
+                        🟡 Chế độ Ngoại tuyến (IndexedDB)
+                      </span>
+                    )}
+                  </div>
+                  <div className="card-body">
+                    {/* Data Overview Stats */}
+                    <div className="row row-cards mb-4">
+                      <div className="col-6 col-md-3">
+                        <div className="card card-sm">
+                          <div className="card-body p-3">
+                            <span className="form-hint">Tổng số kho:</span>
+                            <div className="font-weight-bold" style={{ fontSize: '1.3rem' }}>{warehouses.length}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="card card-sm">
+                          <div className="card-body p-3">
+                            <span className="form-hint">Tổng số phân khu:</span>
+                            <div className="font-weight-bold" style={{ fontSize: '1.3rem' }}>{zones.length}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="card card-sm">
+                          <div className="card-body p-3">
+                            <span className="form-hint">Tổng số ô vị trí:</span>
+                            <div className="font-weight-bold" style={{ fontSize: '1.3rem' }}>{allLocations.length}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-6 col-md-3">
+                        <div className="card card-sm">
+                          <div className="card-body p-3">
+                            <span className="form-hint">Sản phẩm:</span>
+                            <div className="font-weight-bold text-success" style={{ fontSize: '1.3rem' }}>{products.length}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Supabase Connection Settings Form */}
+                    <div className="p-3 bg-light rounded border">
+                      <h4 className="card-title mb-3">⚙️ Cấu hình API Supabase:</h4>
+                      
+                      <div className="row g-3 mb-3">
+                        <div className="col-12 col-md-6">
+                          <label className="form-label required">Project URL:</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={supabaseForm.url}
+                            onChange={(e) => setSupabaseForm({ ...supabaseForm, url: e.target.value })}
+                            placeholder="https://xyzcompany.supabase.co"
+                          />
+                        </div>
+
+                        <div className="col-12 col-md-6">
+                          <label className="form-label required">Anon Public API Key:</label>
+                          <input
+                            type="text"
+                            className="form-control"
+                            value={supabaseForm.key}
+                            onChange={(e) => setSupabaseForm({ ...supabaseForm, key: e.target.value })}
+                            placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="btn-list">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={async () => {
+                            saveCustomSupabaseConfig(supabaseForm.url, supabaseForm.key);
+                            showNotification('info', 'Đang kết nối lại Supabase...');
+                            await autoBootstrapSupabaseDatabase();
+                            await loadData();
+                            showNotification('success', 'Đã lưu cấu hình và kết nối Supabase thành công!');
+                          }}
+                        >
+                          💾 Lưu & Kết nối Supabase
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary"
+                          onClick={async () => {
+                            showNotification('info', 'Đang nạp dữ liệu sản phẩm và kho lên Supabase...');
+                            await autoBootstrapSupabaseDatabase();
+                            await loadData();
+                            showNotification('success', 'Đã nạp dữ liệu thành công!');
+                          }}
+                        >
+                          ⚡ Nạp/Đẩy dữ liệu mẫu lên Supabase
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-outline-danger"
+                          onClick={async () => {
+                            if (window.confirm('Khôi phục toàn bộ dữ liệu mẫu trong IndexedDB?')) {
+                              await resetLocalDatabase();
+                              await loadData();
+                              showNotification('success', 'Đã reset IndexedDB thành công!');
+                            }
+                          }}
+                        >
+                          Khôi phục Dữ liệu IndexedDB
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
           </div>
         )}
-      </main>
+
+        {/* Tabler Footer */}
+        <footer className="footer footer-transparent d-print-none py-3 text-muted">
+          <div className="container-xl">
+            <div className="row text-center align-items-center flex-row-reverse">
+              <div className="col-lg-auto ms-lg-auto">
+                <span className="badge bg-blue-lt me-2">Production v2.4</span>
+                <span>Tabler Dashboard Standard</span>
+              </div>
+              <div className="col-12 col-lg-auto mt-3 mt-lg-0">
+                &copy; 2026 Kho Nhựt Lúa &bull; Hệ thống Quản trị & Bản đồ Vệ tinh Không gian Thực
+              </div>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      {/* Mobile Bottom Tab Navigation */}
+      <div className="mobile-bottom-nav">
+        <button className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+          <LayoutDashboard size={18} />
+          <span>Tổng quan</span>
+        </button>
+        <button className={`mobile-nav-item ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
+          <QrCode size={18} />
+          <span>Di chuyển</span>
+        </button>
+        <button className={`mobile-nav-item ${activeTab === 'maps' ? 'active' : ''}`} onClick={() => setActiveTab('maps')}>
+          <MapIcon size={18} />
+          <span>Bản đồ</span>
+        </button>
+        <button className={`mobile-nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
+          <Search size={18} />
+          <span>Tra cứu</span>
+        </button>
+        <button className={`mobile-nav-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
+          <History size={18} />
+          <span>Lịch sử</span>
+        </button>
+        <button className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+          <SettingsIcon size={18} />
+          <span>Cấu hình</span>
+        </button>
+      </div>
 
       {/* QR PRINT MANAGER MODAL */}
       {isPrintModalOpen && (
