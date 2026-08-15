@@ -51,7 +51,8 @@ import {
   initializeProductionSeed,
   autoBootstrapSupabaseDatabase,
   subscribeToRealtimeChanges,
-  resetLocalDatabase
+  resetLocalDatabase,
+  createProduct
 } from './lib/database';
 
 import { performOCR } from './lib/ocr';
@@ -258,26 +259,52 @@ function App() {
     resolveProductForMovement(manualProductCodeInput.trim());
   };
 
-  const resolveProductForMovement = (productCodeOrQuery: string) => {
-    const cleanQuery = productCodeOrQuery.trim().toLowerCase();
+  const resolveProductForMovement = async (productCodeOrQuery: string) => {
+    const rawInput = productCodeOrQuery.trim();
+    if (!rawInput) return;
+    const cleanQuery = rawInput.toLowerCase();
     
     // Exact or substring match
-    const foundProd = products.find(
+    let foundProd = products.find(
       p => p.product_code.toLowerCase() === cleanQuery ||
            p.product_code.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanQuery.replace(/[^a-z0-9]/g, '') ||
            p.name.toLowerCase().includes(cleanQuery)
     );
 
+    // AUTO-CREATE ON THE FLY IF NOT FOUND
     if (!foundProd) {
-      showNotification('error', `Không tìm thấy sản phẩm [${productCodeOrQuery}] trong danh sách!`);
-      return;
+      // Extract length from code (e.g. e120.35 -> 120, e80.12 -> 80)
+      const match = rawInput.match(/^[a-zA-Z]*(\d+)/);
+      const autoLength = match && match[1] ? parseInt(match[1], 10) : 120;
+      const autoName = `Thanh Nhựa ${rawInput}`;
+
+      try {
+        setIsLoading(true);
+        const createRes = await createProduct(
+          rawInput,
+          autoName,
+          autoLength,
+          'cm',
+          null,
+          'Khanh Staff'
+        );
+        foundProd = createRes.product;
+        // Update local products state
+        setProducts(prev => [createRes.product, ...prev]);
+        showNotification('success', `✨ Đã tự động tạo mới sản phẩm [${createRes.product.product_code}] (Dài ${autoLength}cm)!`);
+      } catch (err: any) {
+        showNotification('error', 'Không thể tạo tự động sản phẩm: ' + err.message);
+        return;
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     stopProductBarcodeScanner();
     setActiveProduct(foundProd);
 
     // Resolve current location
-    const curLocBinding = currentLocations.find(c => c.product_id === foundProd.id);
+    const curLocBinding = currentLocations.find(c => c.product_id === foundProd!.id);
     if (curLocBinding && curLocBinding.location_id) {
       const loc = allLocations.find(l => l.id === curLocBinding.location_id);
       const wh = loc ? warehouses.find(w => w.id === loc.warehouse_id) : null;
@@ -289,7 +316,6 @@ function App() {
     }
 
     setMovementStep('product_selected');
-    showNotification('success', `Đã chọn sản phẩm: ${foundProd.product_code} (${foundProd.name})`);
   };
 
   // --- Step 2: Start Move ---
@@ -974,8 +1000,12 @@ function App() {
                                 autoFocus
                               />
                               <button type="submit" className="btn btn-primary text-nowrap">
-                                <CheckCircle size={16} className="me-1" /> Chọn mã
+                                <CheckCircle size={16} className="me-1" /> Chọn / Tạo mới
                               </button>
+                            </div>
+                            <div className="d-flex align-items-center gap-2 text-muted" style={{ fontSize: '0.8rem' }}>
+                              <Sparkles size={14} className="text-success flex-shrink-0" />
+                              <span><strong>Tự động tạo mới:</strong> Nếu nhập mã chưa có trong kho (VD: <code>e120.99</code>), hệ thống sẽ <strong>tự động đăng ký sản phẩm mới ngay</strong> và chuyển sang bước chọn vị trí lưu kho!</span>
                             </div>
                           </form>
 

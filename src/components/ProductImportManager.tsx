@@ -433,40 +433,67 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
               </div>
             </div>
 
-            {/* Preview Matrix */}
+            {/* Preview Matrix & Slot Allocation Breakdown */}
             {parsedPreview.length > 0 && (
-              <div className="glass-card" style={{ background: '#ffffff', padding: '14px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <h4 style={{ fontSize: '0.88rem', fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>
-                  📋 Danh Sách Đã Phân Tích ({parsedPreview.length} sản phẩm):
-                </h4>
-                <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '6px' }}>
-                  {parsedPreview.map((item, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        background: '#f1f5f9',
-                        padding: '6px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.78rem',
-                        border: '1px solid #e2e8f0',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <strong>{item.code}</strong>
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>{item.length}{item.unit}</span>
-                    </div>
-                  ))}
+              <div className="card mb-3">
+                <div className="card-header d-flex justify-content-between align-items-center">
+                  <h4 className="card-title m-0">
+                    <ListPlus size={16} className="text-primary me-2" />
+                    Xem Trước Phân Bổ Vị Trí ({parsedPreview.length} sản phẩm)
+                  </h4>
+                  {autoAssignEmptySlots && (
+                    <span className={`badge ${allLocations.filter(l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id)).length >= parsedPreview.length ? 'bg-success-lt' : 'bg-warning-lt'}`}>
+                      {allLocations.filter(l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id)).length} Ô trống khả dụng
+                    </span>
+                  )}
+                </div>
+                <div className="card-body p-2">
+                  <div className="table-responsive" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    <table className="table table-vcenter table-sm table-striped">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Mã Sản Phẩm</th>
+                          <th>Quy Cách</th>
+                          <th>Chiều dài</th>
+                          <th>Vị trí ô sẽ gán</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {parsedPreview.map((item, idx) => {
+                          const emptyLocs = allLocations.filter(l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id));
+                          const assignedLoc = autoAssignEmptySlots && idx < emptyLocs.length ? emptyLocs[idx] : null;
+                          const targetWh = warehouses.find(w => w.id === bulkWarehouseId);
+
+                          return (
+                            <tr key={idx}>
+                              <td className="text-muted">{idx + 1}</td>
+                              <td><strong className="text-primary">{item.code}</strong></td>
+                              <td>Thanh Nhựa {item.code}</td>
+                              <td><span className="badge bg-azure-lt">{item.length} {item.unit}</span></td>
+                              <td>
+                                {assignedLoc ? (
+                                  <span className="badge bg-success-lt font-weight-bold">
+                                    {targetWh?.code || ''} - Ô {assignedLoc.code}
+                                  </span>
+                                ) : (
+                                  <span className="badge bg-secondary-lt text-muted">Chưa gán ô</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div className="d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ width: 'auto' }}
+                className="btn btn-outline-secondary"
                 onClick={onClose}
               >
                 Hủy
@@ -474,11 +501,11 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ width: 'auto', padding: '8px 22px', background: '#2563eb' }}
-                disabled={isProcessing || !bulkText.trim()}
                 onClick={handleBulkSubmit}
+                disabled={isProcessing || !bulkText.trim()}
               >
-                <Sparkles size={16} /> {isProcessing ? 'Đang nhập hàng loạt...' : `🚀 Nhập ${parsedPreview.length || ''} Sản Phẩm Vào Kho`}
+                <PackagePlus size={16} className="me-1" />
+                {isProcessing ? 'Đang nhập...' : `🚀 Nhập Hàng Loạt (${parsedPreview.length || '...'} SP)`}
               </button>
             </div>
           </div>
