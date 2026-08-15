@@ -22,7 +22,8 @@ import {
   Grid,
   PackagePlus,
   Box,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -53,7 +54,8 @@ import {
   autoBootstrapSupabaseDatabase,
   subscribeToRealtimeChanges,
   resetLocalDatabase,
-  createProduct
+  createProduct,
+  purgeAllJunkData
 } from './lib/database';
 
 import { performOCR } from './lib/ocr';
@@ -227,6 +229,21 @@ function App() {
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  const handlePurgeAllJunkData = async () => {
+    if (window.confirm('⚠️ Bạn có chắc chắn muốn XOÁ SẠCH TOÀN BỘ dữ liệu rác (tất cả sản phẩm test, lịch sử di chuyển)? Kho sẽ được làm sạch 100%!')) {
+      setIsLoading(true);
+      try {
+        await purgeAllJunkData();
+        await loadData();
+        showNotification('success', '🧹 Đã xoá sạch dữ liệu rác thành công! Kho đã sạch sẽ.');
+      } catch (err) {
+        showNotification('error', 'Lỗi khi xoá dữ liệu rác');
+      } finally {
+        setIsLoading(false);
+      }
+    }
   };
 
   const handleManualSync = async () => {
@@ -670,10 +687,13 @@ function App() {
                   <div className="col-auto ms-auto d-print-none">
                     <div className="btn-list">
                       <button className="btn btn-outline-secondary btn-sm" onClick={loadData} disabled={isLoading}>
-                        <RefreshCw size={14} className={isLoading ? 'animate-spin me-1' : 'me-1'} /> Làm mới
+                        <RefreshCw size={14} className={isLoading ? 'animate-spin me-1' : 'me-1'} /> <span className="d-none d-sm-inline">Làm mới</span>
                       </button>
                       <button className="btn btn-primary btn-sm" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
                         <PackagePlus size={14} className="me-1" /> Nhập Lô Mới
+                      </button>
+                      <button className="btn btn-outline-danger btn-sm" onClick={handlePurgeAllJunkData} disabled={isLoading} title="Xóa toàn bộ dữ liệu rác test">
+                        <Trash2 size={14} className="me-1" /> <span className="d-none d-sm-inline">Xóa Rác</span>
                       </button>
                     </div>
                   </div>
@@ -683,74 +703,66 @@ function App() {
 
             <main className="page-body">
               <div className="container-xl">
-                {/* 4 Canonical Tabler Stat Cards */}
-                <div className="row row-cards mb-4">
-                  <div className="col-sm-6 col-lg-3">
-                    <div className="card card-sm">
-                      <div className="card-body">
-                        <div className="row align-items-center">
-                          <div className="col-auto">
-                            <span className="avatar bg-primary-lt">
-                              <FileText size={22} />
-                            </span>
-                          </div>
-                          <div className="col">
-                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{products.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Sản phẩm quản lý</div>
+                {/* 4 Compact Stat Cards in 2x2 Grid on Mobile */}
+                <div className="row g-2 mb-3">
+                  <div className="col-6 col-lg-3">
+                    <div className="card card-sm h-100">
+                      <div className="card-body p-2 p-md-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="avatar avatar-sm bg-primary-lt flex-shrink-0">
+                            <FileText size={16} />
+                          </span>
+                          <div>
+                            <div className="font-weight-bold" style={{ fontSize: '1.15rem', color: '#0f172a', lineHeight: 1.1 }}>{products.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.72rem' }}>Sản phẩm</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="col-sm-6 col-lg-3">
-                    <div className="card card-sm">
-                      <div className="card-body">
-                        <div className="row align-items-center">
-                          <div className="col-auto">
-                            <span className="avatar bg-success-lt">
-                              <MapPin size={22} />
-                            </span>
-                          </div>
-                          <div className="col">
-                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{allLocations.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Tổng ô vị trí trên kệ</div>
+                  <div className="col-6 col-lg-3">
+                    <div className="card card-sm h-100">
+                      <div className="card-body p-2 p-md-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="avatar avatar-sm bg-success-lt flex-shrink-0">
+                            <MapPin size={16} />
+                          </span>
+                          <div>
+                            <div className="font-weight-bold" style={{ fontSize: '1.15rem', color: '#0f172a', lineHeight: 1.1 }}>{allLocations.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.72rem' }}>Vị trí ô kệ</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="col-sm-6 col-lg-3">
-                    <div className="card card-sm">
-                      <div className="card-body">
-                        <div className="row align-items-center">
-                          <div className="col-auto">
-                            <span className="avatar bg-azure-lt">
-                              <MapIcon size={22} />
-                            </span>
-                          </div>
-                          <div className="col">
-                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{warehouses.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Khu kho định vị GPS</div>
+                  <div className="col-6 col-lg-3">
+                    <div className="card card-sm h-100">
+                      <div className="card-body p-2 p-md-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="avatar avatar-sm bg-azure-lt flex-shrink-0">
+                            <MapIcon size={16} />
+                          </span>
+                          <div>
+                            <div className="font-weight-bold" style={{ fontSize: '1.15rem', color: '#0f172a', lineHeight: 1.1 }}>{warehouses.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.72rem' }}>Kho vệ tinh</div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="col-sm-6 col-lg-3">
-                    <div className="card card-sm">
-                      <div className="card-body">
-                        <div className="row align-items-center">
-                          <div className="col-auto">
-                            <span className="avatar bg-warning-lt">
-                              <RefreshCw size={22} />
-                            </span>
-                          </div>
-                          <div className="col">
-                            <div className="font-weight-bold" style={{ fontSize: '1.4rem', color: '#0f172a' }}>{syncOutbox.length}</div>
-                            <div className="text-secondary" style={{ fontSize: '0.8rem' }}>Chờ đồng bộ Offline</div>
+                  <div className="col-6 col-lg-3">
+                    <div className="card card-sm h-100">
+                      <div className="card-body p-2 p-md-3">
+                        <div className="d-flex align-items-center gap-2">
+                          <span className="avatar avatar-sm bg-warning-lt flex-shrink-0">
+                            <RefreshCw size={16} />
+                          </span>
+                          <div>
+                            <div className="font-weight-bold" style={{ fontSize: '1.15rem', color: '#0f172a', lineHeight: 1.1 }}>{syncOutbox.length}</div>
+                            <div className="text-secondary" style={{ fontSize: '0.72rem' }}>Chờ đồng bộ</div>
                           </div>
                         </div>
                       </div>
@@ -760,39 +772,39 @@ function App() {
 
                 {/* Offline Sync Alert */}
                 {syncOutbox.length > 0 && (
-                  <div className="card border-warning mb-4" style={{ background: '#fffbeb' }}>
-                    <div className="card-body d-flex align-items-center justify-content-between flex-wrap gap-2">
-                      <div className="d-flex align-items-center gap-3">
-                        <AlertCircle className="text-warning" size={26} />
+                  <div className="card border-warning mb-3" style={{ background: '#fffbeb' }}>
+                    <div className="card-body p-2 p-md-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <AlertCircle className="text-warning flex-shrink-0" size={22} />
                         <div>
-                          <h4 className="card-title text-warning m-0">Có {syncOutbox.length} giao dịch ngoại tuyến chờ đồng bộ</h4>
-                          <div className="text-secondary" style={{ fontSize: '0.8rem' }}>
-                            Dữ liệu đã được lưu an toàn trong IndexedDB của máy và sẽ tự động đẩy lên Supabase khi có mạng.
+                          <strong className="text-warning" style={{ fontSize: '0.85rem' }}>Có {syncOutbox.length} giao dịch chờ đồng bộ</strong>
+                          <div className="text-secondary" style={{ fontSize: '0.72rem' }}>
+                            Đã lưu an toàn trong IndexedDB của máy.
                           </div>
                         </div>
                       </div>
                       <button className="btn btn-warning btn-sm" onClick={handleManualSync} disabled={isLoading}>
-                        <RefreshCw size={14} className={isLoading ? 'animate-spin me-1' : 'me-1'} /> Đồng bộ ngay
+                        <RefreshCw size={13} className={isLoading ? 'animate-spin me-1' : 'me-1'} /> Đồng bộ
                       </button>
                     </div>
                   </div>
                 )}
 
                 {/* Quick Actions & Warehouse Capacity Overview Bento Grid */}
-                <div className="row row-cards mb-4">
+                <div className="row g-3 mb-3">
                   {/* Warehouse Capacity Utilization Card */}
                   <div className="col-lg-8">
                     <div className="card h-100">
-                      <div className="card-header d-flex justify-content-between align-items-center">
-                        <h3 className="card-title">
-                          <MapIcon size={18} className="text-primary me-2" /> Tỷ lệ Sử dụng & Sức chứa Các Kho
+                      <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-1 p-2 p-md-3">
+                        <h3 className="card-title" style={{ fontSize: '0.88rem' }}>
+                          <MapIcon size={16} className="text-primary me-1" /> Sức chứa & Tỷ lệ Các Kho
                         </h3>
-                        <span className="badge bg-azure-lt">
-                          {currentLocations.filter(c => c.location_id).length} / {allLocations.length} Ô đã chứa hàng
+                        <span className="badge bg-azure-lt" style={{ fontSize: '0.7rem' }}>
+                          {currentLocations.filter(c => c.location_id).length} / {allLocations.length} Ô có hàng
                         </span>
                       </div>
-                      <div className="card-body">
-                        <div className="row g-3">
+                      <div className="card-body p-2 p-md-3">
+                        <div className="row g-2">
                           {warehouses.map(wh => {
                             const whLocs = allLocations.filter(l => l.warehouse_id === wh.id);
                             const whOccupied = whLocs.filter(l => currentLocations.some(c => c.location_id === l.id)).length;
@@ -800,25 +812,26 @@ function App() {
                             const percent = whLocs.length > 0 ? Math.round((whOccupied / whLocs.length) * 100) : 0;
 
                             return (
-                              <div key={wh.id} className="col-sm-6">
-                                <div className="p-3 bg-light rounded border">
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <div className="d-flex align-items-center gap-2">
+                              <div key={wh.id} className="col-6 col-sm-6">
+                                <div className="p-2 bg-light rounded border">
+                                  <div className="d-flex justify-content-between align-items-center mb-1">
+                                    <div className="d-flex align-items-center gap-1" style={{ minWidth: 0 }}>
                                       <span
                                         style={{
-                                          width: '10px',
-                                          height: '10px',
+                                          width: '8px',
+                                          height: '8px',
                                           borderRadius: '50%',
-                                          backgroundColor: wh.color
+                                          backgroundColor: wh.color,
+                                          flexShrink: 0
                                         }}
                                       />
-                                      <strong style={{ color: '#0f172a' }}>{wh.code} - {wh.name}</strong>
+                                      <strong className="text-truncate" style={{ fontSize: '0.78rem', color: '#0f172a' }}>{wh.code} - {wh.name}</strong>
                                     </div>
-                                    <span className="small font-weight-bold" style={{ color: wh.color }}>
-                                      {whProds} SP ({whOccupied}/{whLocs.length} ô có hàng)
+                                    <span className="small font-weight-bold flex-shrink-0" style={{ fontSize: '0.68rem', color: wh.color }}>
+                                      {whProds} SP ({whOccupied}/{whLocs.length})
                                     </span>
                                   </div>
-                                  <div className="progress progress-sm" style={{ height: '6px' }}>
+                                  <div className="progress progress-sm" style={{ height: '5px' }}>
                                     <div
                                       className="progress-bar"
                                       style={{
@@ -839,29 +852,41 @@ function App() {
                   {/* Quick Action Hub */}
                   <div className="col-lg-4">
                     <div className="card h-100">
-                      <div className="card-header">
-                        <h3 className="card-title">
-                          <Sparkles size={18} className="text-primary me-2" /> Trung tâm Thao tác
+                      <div className="card-header p-2 p-md-3">
+                        <h3 className="card-title" style={{ fontSize: '0.88rem' }}>
+                          <Sparkles size={16} className="text-primary me-1" /> Thao tác Nhanh
                         </h3>
                       </div>
-                      <div className="card-body d-flex flex-column justify-content-between gap-2">
-                        <button className="btn btn-primary w-100 py-2 justify-content-start" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
-                          <QrCode size={18} className="me-2" /> Di chuyển & Nhập xuất Kho
-                        </button>
-                        <button className="btn btn-outline-primary w-100 py-2 justify-content-start" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
-                          <PackagePlus size={18} className="me-2" /> Nhập Sản Phẩm / Lô Mới
-                        </button>
-                        <button className="btn btn-outline-secondary w-100 py-2 justify-content-start" onClick={() => setActiveTab('maps')}>
-                          <MapIcon size={18} className="me-2" /> Bản đồ Vệ tinh Quảng Nam
-                        </button>
-                        <button className="btn btn-outline-secondary w-100 py-2 justify-content-start" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
-                          <Printer size={18} className="me-2" /> In Mã QR Dán Ô Kệ
-                        </button>
-                        {!isPwaInstalled && (
-                          <button className="btn btn-outline-success w-100 py-2 justify-content-start" onClick={handleInstallPwa}>
-                            <Download size={18} className="me-2" /> Cài đặt App PWA vào Máy
-                          </button>
-                        )}
+                      <div className="card-body p-2 p-md-3">
+                        <div className="row g-2">
+                          <div className="col-6 col-lg-12">
+                            <button className="btn btn-primary w-100 py-2 justify-content-start text-start" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
+                              <QrCode size={15} className="me-1 me-md-2" /> <span style={{ fontSize: '0.78rem' }}>Di chuyển kho</span>
+                            </button>
+                          </div>
+                          <div className="col-6 col-lg-12">
+                            <button className="btn btn-outline-primary w-100 py-2 justify-content-start text-start" onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}>
+                              <PackagePlus size={15} className="me-1 me-md-2" /> <span style={{ fontSize: '0.78rem' }}>Nhập Lô / SP</span>
+                            </button>
+                          </div>
+                          <div className="col-6 col-lg-12">
+                            <button className="btn btn-outline-secondary w-100 py-2 justify-content-start text-start" onClick={() => setActiveTab('maps')}>
+                              <MapIcon size={15} className="me-1 me-md-2" /> <span style={{ fontSize: '0.78rem' }}>Bản đồ Vệ tinh</span>
+                            </button>
+                          </div>
+                          <div className="col-6 col-lg-12">
+                            <button className="btn btn-outline-secondary w-100 py-2 justify-content-start text-start" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
+                              <Printer size={15} className="me-1 me-md-2" /> <span style={{ fontSize: '0.78rem' }}>In Mã QR Kệ</span>
+                            </button>
+                          </div>
+                          {!isPwaInstalled && (
+                            <div className="col-12">
+                              <button className="btn btn-outline-success w-100 py-2 justify-content-start text-start" onClick={handleInstallPwa}>
+                                <Download size={15} className="me-1 me-md-2" /> <span style={{ fontSize: '0.78rem' }}>Cài đặt App PWA</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -869,17 +894,67 @@ function App() {
 
                 {/* Realtime Inventory Snapshot Table */}
                 <div className="card">
-                  <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h3 className="card-title">
-                      <FileText size={18} className="text-primary me-2" /> Danh mục & Vị trí Lưu kho ({products.length} sản phẩm)
+                  <div className="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 p-2 p-md-3">
+                    <h3 className="card-title" style={{ fontSize: '0.88rem' }}>
+                      <FileText size={16} className="text-primary me-1" /> Danh mục Lưu kho ({products.length} SP)
                     </h3>
-                    <div className="d-flex gap-2">
-                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setActiveTab('search')}>
-                        <Search size={14} className="me-1" /> Tra cứu chi tiết
+                    <div className="d-flex gap-1">
+                      <button className="btn btn-outline-secondary btn-sm px-2" onClick={() => setActiveTab('search')}>
+                        <Search size={13} className="me-1" /> Tra cứu
                       </button>
+                      {products.length > 0 && (
+                        <button className="btn btn-outline-danger btn-sm px-2" onClick={handlePurgeAllJunkData} title="Xóa sạch dữ liệu rác">
+                          <Trash2 size={13} className="me-1" /> Xóa rác
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div className="table-responsive">
+
+                  {/* Mobile Cards List (Visible only on mobile) */}
+                  <div className="d-md-none p-2 d-flex flex-column gap-2">
+                    {products.length === 0 ? (
+                      <div className="text-center py-4 text-muted" style={{ fontSize: '0.85rem' }}>
+                        Chưa có sản phẩm nào trong kho. Bấm <strong>"Nhập Lô Mới"</strong> để thêm hàng vào kho.
+                      </div>
+                    ) : (
+                      products.slice(0, 20).map((p) => {
+                        const curBinding = currentLocations.find(c => c.product_id === p.id);
+                        const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
+                        const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;
+
+                        return (
+                          <div key={p.id} className="p-2 bg-white rounded border d-flex align-items-center justify-content-between gap-2 shadow-xs">
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div className="d-flex align-items-center gap-2">
+                                <strong className="text-primary" style={{ fontSize: '0.92rem' }}>{p.product_code}</strong>
+                                <span className="badge bg-azure-lt" style={{ fontSize: '0.68rem' }}>{p.length_value} {p.length_unit}</span>
+                              </div>
+                              <div className="text-muted text-truncate" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                                {curWh && curLoc ? (
+                                  <span className="text-success font-weight-bold">📍 {curWh.code} - Ô {curLoc.code}</span>
+                                ) : (
+                                  <span className="text-warning">⚠️ Chưa xếp ô kệ</span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-outline-primary btn-sm px-2 py-1 flex-shrink-0"
+                              style={{ fontSize: '0.75rem' }}
+                              onClick={() => {
+                                setActiveTab('scanner');
+                                resolveProductForMovement(p.product_code);
+                              }}
+                            >
+                              Di chuyển
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Desktop Table (Hidden on mobile) */}
+                  <div className="table-responsive d-none d-md-block">
                     <table className="table table-vcenter card-table table-striped table-hover">
                       <thead>
                         <tr>
@@ -895,11 +970,11 @@ function App() {
                         {products.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="text-center py-4 text-muted">
-                              Chưa có sản phẩm nào trong kho. Bấm "Nhập Hàng / SP Mới" để thêm ngay.
+                              Chưa có sản phẩm nào trong kho. Bấm "Nhập Lô Mới" để thêm ngay.
                             </td>
                           </tr>
                         ) : (
-                          products.slice(0, 15).map((p) => {
+                          products.slice(0, 20).map((p) => {
                             const curBinding = currentLocations.find(c => c.product_id === p.id);
                             const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
                             const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;

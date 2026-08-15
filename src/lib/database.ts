@@ -212,104 +212,14 @@ const DEFAULT_SEED_LOCATIONS: WarehouseLocation[] = [
   { id: 'c4444444-4444-4444-4444-000000000d03', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'D03', x_m: 8.0, y_m: 15.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000d03', created_at: new Date().toISOString() }
 ];
 
-const DEFAULT_SEED_PRODUCTS: Product[] = [
-  {
-    id: 'e1203000-0000-0000-0000-000000000001',
-    product_code: 'e120.30',
-    name: 'Thanh Nhựa e120 bản 30mm',
-    length_value: 120.0,
-    length_unit: 'cm',
-    status: 'active',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'e1003400-0000-0000-0000-000000000002',
-    product_code: 'e100.34',
-    name: 'Thanh Nhựa e100 bản 34mm',
-    length_value: 100.0,
-    length_unit: 'cm',
-    status: 'active',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'e8034300-0000-0000-0000-000000000003',
-    product_code: 'e80.343',
-    name: 'Thanh Nhựa e80 bản 34.3mm',
-    length_value: 80.0,
-    length_unit: 'cm',
-    status: 'active',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'f5004500-0000-0000-0000-000000000004',
-    product_code: 'p500.45',
-    name: 'Ống Profile p500 bản 45mm',
-    length_value: 500.0,
-    length_unit: 'cm',
-    status: 'active',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'a1009900-0000-0000-0000-000000000005',
-    product_code: 'a100.99',
-    name: 'Khung Nhôm a100 cao cấp',
-    length_value: 100.0,
-    length_unit: 'cm',
-    status: 'active',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'f8888800-0000-0000-0000-000000000006',
-    product_code: 'x888.88',
-    name: 'Thanh Chữ X Series 888',
-    length_value: 88.0,
-    length_unit: 'cm',
-    status: 'active',
-    created_at: new Date().toISOString()
-  }
-];
-
-const DEFAULT_SEED_PRODUCT_LOCATIONS: ProductCurrentLocation[] = [
-  {
-    id: 'd1111111-0000-0000-0000-000000000001',
-    product_id: 'e1203000-0000-0000-0000-000000000001',
-    location_id: 'c1111111-1111-1111-1111-000000000b02',
-    updated_at: new Date().toISOString(),
-    updated_by: 'Khanh Admin'
-  },
-  {
-    id: 'd1111111-0000-0000-0000-000000000002',
-    product_id: 'e1003400-0000-0000-0000-000000000002',
-    location_id: 'c1111111-1111-1111-1111-000000000a01',
-    updated_at: new Date().toISOString(),
-    updated_by: 'Khanh Admin'
-  },
-  {
-    id: 'd1111111-0000-0000-0000-000000000003',
-    product_id: 'e8034300-0000-0000-0000-000000000003',
-    location_id: 'c1111111-1111-1111-1111-000000000c03',
-    updated_at: new Date().toISOString(),
-    updated_by: 'Khanh Admin'
-  },
-  {
-    id: 'd1111111-0000-0000-0000-000000000004',
-    product_id: 'f5004500-0000-0000-0000-000000000004',
-    location_id: 'c2222222-2222-2222-2222-000000000a01',
-    updated_at: new Date().toISOString(),
-    updated_by: 'Khanh Admin'
-  }
-];
-
 // Initialize IndexedDB with Seed if empty
 export const initializeProductionSeed = async () => {
   const existing = await idbGetAll<Warehouse>(STORES.WAREHOUSES);
   if (existing.length === 0) {
-    console.log('📦 Seeding initial data to IndexedDB...');
+    console.log('📦 Seeding initial warehouse structure to IndexedDB...');
     await idbPutItems(STORES.WAREHOUSES, DEFAULT_SEED_WAREHOUSES);
     await idbPutItems(STORES.ZONES, DEFAULT_SEED_ZONES);
     await idbPutItems(STORES.LOCATIONS, DEFAULT_SEED_LOCATIONS);
-    await idbPutItems(STORES.PRODUCTS, DEFAULT_SEED_PRODUCTS);
-    await idbPutItems(STORES.PRODUCT_LOCATIONS, DEFAULT_SEED_PRODUCT_LOCATIONS);
   }
 };
 
@@ -329,8 +239,6 @@ export const autoBootstrapSupabaseDatabase = async (): Promise<boolean> => {
       await supabaseClient.from('warehouses').upsert(DEFAULT_SEED_WAREHOUSES);
       await supabaseClient.from('warehouse_zones').upsert(DEFAULT_SEED_ZONES);
       await supabaseClient.from('warehouse_locations').upsert(DEFAULT_SEED_LOCATIONS);
-      await supabaseClient.from('products').upsert(DEFAULT_SEED_PRODUCTS);
-      await supabaseClient.from('product_current_locations').upsert(DEFAULT_SEED_PRODUCT_LOCATIONS);
       console.log('✅ Server database bootstrap completed!');
     }
     return true;
@@ -338,6 +246,41 @@ export const autoBootstrapSupabaseDatabase = async (): Promise<boolean> => {
     console.warn('Auto-bootstrap failed:', err);
     return false;
   }
+};
+
+// Purge all junk/test products, bindings, and movement history
+export const purgeAllJunkData = async (): Promise<void> => {
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('product_location_movements').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabaseClient.from('product_current_locations').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      await supabaseClient.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      console.log('🧹 Purged all junk products and movements from Supabase.');
+    } catch (e) {
+      console.warn('Error purging Supabase junk data:', e);
+    }
+  }
+
+  // Clear IndexedDB stores
+  await idbPutItems(STORES.PRODUCTS, []);
+  await idbPutItems(STORES.PRODUCT_LOCATIONS, []);
+  await idbPutItems(STORES.MOVEMENTS, []);
+  await idbPutItems(STORES.OUTBOX, []);
+
+  try {
+    const prods = await idbGetAll<Product>(STORES.PRODUCTS);
+    for (const p of prods) {
+      await idbDeleteItem(STORES.PRODUCTS, p.id);
+    }
+    const binds = await idbGetAll<ProductCurrentLocation>(STORES.PRODUCT_LOCATIONS);
+    for (const b of binds) {
+      await idbDeleteItem(STORES.PRODUCT_LOCATIONS, b.id);
+    }
+    const moves = await idbGetAll<ProductLocationMovement>(STORES.MOVEMENTS);
+    for (const m of moves) {
+      await idbDeleteItem(STORES.MOVEMENTS, m.id);
+    }
+  } catch (e) {}
 };
 
 if (supabaseClient) {
