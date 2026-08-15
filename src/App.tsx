@@ -51,6 +51,7 @@ import type {
 
 import { performOCR } from './lib/ocr';
 import { parseQRPayload } from './lib/qr';
+import { WarehouseSatelliteMap } from './components/WarehouseSatelliteMap';
 
 function App() {
   // --- Navigation State ---
@@ -92,6 +93,7 @@ function App() {
 
   // --- Maps Screen States ---
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('K1');
+  const [mapDisplayMode, setMapDisplayMode] = useState<'satellite' | '2d'>('satellite');
   const [selectedCellInfo, setSelectedCellInfo] = useState<{
     locationId: string;
     product: string | null;
@@ -1017,78 +1019,115 @@ function App() {
         {/* SCREEN: WAREHOUSE MAPS */}
         {activeTab === 'maps' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 className="screen-title" style={{ marginBottom: 0 }}><MapIcon /> Bản đồ kho hàng 2D</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <h2 className="screen-title" style={{ marginBottom: 0 }}><MapIcon /> Sơ đồ Kho hàng</h2>
+                
+                {/* Switch between Satellite overlay and 2D Grid view */}
+                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', padding: '3px', borderRadius: 'var(--radius-sm)' }}>
+                  <button
+                    className={`btn ${mapDisplayMode === 'satellite' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '4px 12px', fontSize: '0.78rem', width: 'auto' }}
+                    onClick={() => setMapDisplayMode('satellite')}
+                  >
+                    🛰️ Vệ tinh thực địa
+                  </button>
+                  <button
+                    className={`btn ${mapDisplayMode === '2d' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ padding: '4px 12px', fontSize: '0.78rem', width: 'auto' }}
+                    onClick={() => setMapDisplayMode('2d')}
+                  >
+                    📐 Bàn cờ 2D
+                  </button>
+                </div>
+              </div>
+
               <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => setIsAddWarehouseModalOpen(true)}>
                 <Plus size={16} /> Tạo Kho mới (K5...)
               </button>
             </div>
 
-            {/* Warehouse tabs */}
-            <div className="map-controls">
-              {warehouses.map(w => (
-                <button
-                  key={w.id}
-                  className={`map-tab ${selectedWarehouseId === w.id ? 'active' : ''}`}
-                  onClick={() => { setSelectedWarehouseId(w.id); setSelectedCellInfo(null); }}
-                >
-                  {w.name}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', alignItems: 'start' }}>
-              {/* Map grid renderer */}
-              <div className="glass-card" style={{ flex: 1 }}>
-                <div className="warehouse-meta-info">
-                  <span>Kho: <strong>{warehouses.find(w => w.id === selectedWarehouseId)?.name}</strong></span>
-                  <span>Kiểu kệ: <strong>{warehouses.find(w => w.id === selectedWarehouseId)?.type === 'grid' ? 'Grid Ô/Cột' : 'Aisle Lối đi'}</strong></span>
+            {/* SATELLITE MAP VIEW (DRAWN DIRECTLY OVER SATELLITE IMAGERY) */}
+            {mapDisplayMode === 'satellite' ? (
+              <WarehouseSatelliteMap
+                warehouses={warehouses}
+                allLocations={allLocations}
+                currentLocations={currentLocations}
+                movementsHistory={movementsHistory}
+                onSelectLocation={(locId) => handleCellClick(locId)}
+                selectedLocationId={selectedCellInfo?.locationId}
+                highlightProductCode={searchResult?.productCode}
+              />
+            ) : (
+              /* TRADITIONAL 2D GRID VIEW */
+              <div>
+                {/* Warehouse tabs */}
+                <div className="map-controls">
+                  {warehouses.map(w => (
+                    <button
+                      key={w.id}
+                      className={`map-tab ${selectedWarehouseId === w.id ? 'active' : ''}`}
+                      onClick={() => { setSelectedWarehouseId(w.id); setSelectedCellInfo(null); }}
+                    >
+                      {w.name}
+                    </button>
+                  ))}
                 </div>
-                
-                {renderWarehouseLayout()}
-                
-                <p className="text-muted" style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '12px' }}>
-                  * Nhấp chuột vào bất kỳ ô vị trí kệ nào để xem lịch sử log di chuyển và chi tiết kệ.
-                </p>
-              </div>
 
-              {/* Cell Side Details Info Panel */}
-              {selectedCellInfo && (
-                <div className="glass-card">
-                  <h3 style={{ marginBottom: '12px', fontSize: '1.15rem', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
-                    Kệ hàng: {selectedCellInfo.locationId}
-                  </h3>
-                  
-                  <div className="input-group" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
-                    <span className="input-label">Sản phẩm hiện đang lưu tại đây:</span>
-                    <strong style={{ fontSize: '1.1rem', color: selectedCellInfo.product ? 'var(--color-success)' : 'var(--text-muted)' }}>
-                      {selectedCellInfo.product || 'Trống'}
-                    </strong>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', alignItems: 'start' }}>
+                  {/* Map grid renderer */}
+                  <div className="glass-card" style={{ flex: 1 }}>
+                    <div className="warehouse-meta-info">
+                      <span>Kho: <strong>{warehouses.find(w => w.id === selectedWarehouseId)?.name}</strong></span>
+                      <span>Kiểu kệ: <strong>{warehouses.find(w => w.id === selectedWarehouseId)?.type === 'grid' ? 'Grid Ô/Cột' : 'Aisle Lối đi'}</strong></span>
+                    </div>
+                    
+                    {renderWarehouseLayout()}
+                    
+                    <p className="text-muted" style={{ fontSize: '0.75rem', textAlign: 'center', marginTop: '12px' }}>
+                      * Nhấp chuột vào bất kỳ ô vị trí kệ nào để xem lịch sử log di chuyển và chi tiết kệ.
+                    </p>
                   </div>
 
-                  <h4 style={{ margin: '18px 0 10px', fontSize: '0.95rem', fontWeight: 600 }}>Lịch sử giao dịch tại kệ:</h4>
-                  {selectedCellInfo.history.length === 0 ? (
-                    <div className="text-muted" style={{ fontSize: '0.85rem' }}>Chưa có giao dịch di chuyển nào liên quan đến kệ này.</div>
-                  ) : (
-                    <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                      {selectedCellInfo.history.map(h => (
-                        <div key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.8rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span>Sản phẩm: <strong>{h.product_code}</strong></span>
-                            <span className={h.status === 'completed' ? 'text-success' : 'text-warning'}>
-                              {h.status === 'completed' ? 'Hoàn thành' : 'Đang chuyển'}
-                            </span>
-                          </div>
-                          <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
-                            {h.from_location_id === selectedCellInfo.locationId ? 'Chuyển đi' : 'Chuyển đến'} | {new Date(h.created_at).toLocaleString('vi-VN')}
-                          </div>
+                  {/* Cell Side Details Info Panel */}
+                  {selectedCellInfo && (
+                    <div className="glass-card">
+                      <h3 style={{ marginBottom: '12px', fontSize: '1.15rem', fontWeight: 700, borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '8px' }}>
+                        Kệ hàng: {selectedCellInfo.locationId}
+                      </h3>
+                      
+                      <div className="input-group" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-md)' }}>
+                        <span className="input-label">Sản phẩm hiện đang lưu tại đây:</span>
+                        <strong style={{ fontSize: '1.1rem', color: selectedCellInfo.product ? 'var(--color-success)' : 'var(--text-muted)' }}>
+                          {selectedCellInfo.product || 'Trống'}
+                        </strong>
+                      </div>
+
+                      <h4 style={{ margin: '18px 0 10px', fontSize: '0.95rem', fontWeight: 600 }}>Lịch sử giao dịch tại kệ:</h4>
+                      {selectedCellInfo.history.length === 0 ? (
+                        <div className="text-muted" style={{ fontSize: '0.85rem' }}>Chưa có giao dịch di chuyển nào liên quan đến kệ này.</div>
+                      ) : (
+                        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          {selectedCellInfo.history.map(h => (
+                            <div key={h.id} style={{ padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', fontSize: '0.8rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Sản phẩm: <strong>{h.product_code}</strong></span>
+                                <span className={h.status === 'completed' ? 'text-success' : 'text-warning'}>
+                                  {h.status === 'completed' ? 'Hoàn thành' : 'Đang chuyển'}
+                                </span>
+                              </div>
+                              <div className="text-muted" style={{ fontSize: '0.75rem', marginTop: '2px' }}>
+                                {h.from_location_id === selectedCellInfo.locationId ? 'Chuyển đi' : 'Chuyển đến'} | {new Date(h.created_at).toLocaleString('vi-VN')}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* CREATE CUSTOM WAREHOUSE MODAL */}
             {isAddWarehouseModalOpen && (
