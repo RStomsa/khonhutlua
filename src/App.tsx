@@ -19,7 +19,8 @@ import {
   Database,
   ArrowRight,
   Sparkles,
-  Info
+  Info,
+  Printer
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -54,6 +55,7 @@ import type {
 import { performOCR } from './lib/ocr';
 import { parseQRPayload } from './lib/qr';
 import { WarehouseSatelliteMap } from './components/WarehouseSatelliteMap';
+import { QRPrintManager } from './components/QRPrintManager';
 
 function App() {
   // --- Navigation State ---
@@ -111,6 +113,10 @@ function App() {
     columns: 3,
     rows: 3
   });
+
+  // QR Print Manager Modal
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printInitialWarehouseId, setPrintInitialWarehouseId] = useState<string | undefined>(undefined);
 
   // --- Search Screen States ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -630,6 +636,15 @@ function App() {
               <Database size={12} /> Local Storage
             </span>
           )}
+
+          <button
+            className="btn btn-secondary flex-center gap-sm"
+            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
+            onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}
+            title="In mã QR dán các ô kệ"
+          >
+            <Printer size={15} /> In QR Kệ
+          </button>
           
           <button
             className="btn btn-secondary"
@@ -803,12 +818,15 @@ function App() {
             {/* Quick Actions Dashboard panel */}
             <div className="glass-card">
               <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: 600 }}>Thao tác nhanh</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 <button className="btn btn-primary" onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
                   <QrCode size={18} /> Bắt đầu Move mới
                 </button>
                 <button className="btn btn-secondary" onClick={() => setActiveTab('maps')}>
                   <MapIcon size={18} /> Xem bản đồ
+                </button>
+                <button className="btn btn-secondary" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
+                  <Printer size={18} /> In mã QR dán kệ
                 </button>
               </div>
             </div>
@@ -1056,9 +1074,18 @@ function App() {
                 </div>
               </div>
 
-              <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => setIsAddWarehouseModalOpen(true)}>
-                <Plus size={16} /> Tạo Kho mới (K5...)
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: 'auto' }}
+                  onClick={() => { setPrintInitialWarehouseId(selectedWarehouseId); setIsPrintModalOpen(true); }}
+                >
+                  <Printer size={16} /> In mã QR kệ
+                </button>
+                <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => setIsAddWarehouseModalOpen(true)}>
+                  <Plus size={16} /> Tạo Kho mới (K5...)
+                </button>
+              </div>
             </div>
 
             {/* SATELLITE MAP VIEW (DRAWN DIRECTLY OVER SATELLITE IMAGERY) */}
@@ -1512,6 +1539,16 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* QR PRINT MANAGER MODAL (Available globally on any tab) */}
+      {isPrintModalOpen && (
+        <QRPrintManager
+          warehouses={warehouses}
+          allLocations={allLocations}
+          onClose={() => setIsPrintModalOpen(false)}
+          initialWarehouseId={printInitialWarehouseId}
+        />
+      )}
     </div>
   );
 }
