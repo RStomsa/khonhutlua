@@ -26,6 +26,10 @@ import type {
   ProductCurrentLocation,
   ProductLocationMovement
 } from '../lib/database';
+import {
+  saveWarehouseGPSConfig,
+  getWarehouseGPSConfig
+} from '../lib/database';
 
 interface WarehouseSatelliteMapProps {
   warehouses: Warehouse[];
@@ -271,6 +275,17 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
       }
     });
 
+    // Load GPS config from database on startup
+    getWarehouseGPSConfig().then(cfg => {
+      setBaseCoords({ lat: cfg.lat, lng: cfg.lng });
+      setCustomLatInput(cfg.lat.toFixed(6));
+      setCustomLngInput(cfg.lng.toFixed(6));
+      setScaleFactor(cfg.scale || 1);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.setView([cfg.lat, cfg.lng], 18);
+      }
+    });
+
     return () => {
       map.remove();
       mapInstanceRef.current = null;
@@ -339,7 +354,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
             setBaseCoords({ lat: userLat, lng: userLng });
             setCustomLatInput(userLat.toFixed(6));
             setCustomLngInput(userLng.toFixed(6));
-            localStorage.setItem('kho_gps_coords', JSON.stringify({ lat: userLat, lng: userLng }));
+            saveWarehouseGPSConfig(userLat, userLng, scaleFactor);
             map.flyTo([userLat, userLng], 19, { duration: 1.2 });
           } else {
             map.flyTo([userLat, userLng], 18, { duration: 1 });
@@ -518,24 +533,25 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     highlightProductCode
   ]);
 
-  // Save manual GPS input coordinates
-  const handleSaveManualGPS = (e: React.FormEvent) => {
+  // Save manual GPS input coordinates to database & Supabase
+  const handleSaveManualGPS = async (e: React.FormEvent) => {
     e.preventDefault();
     const lat = parseFloat(customLatInput);
     const lng = parseFloat(customLngInput);
     if (!isNaN(lat) && !isNaN(lng)) {
       setBaseCoords({ lat, lng });
-      localStorage.setItem('kho_gps_coords', JSON.stringify({ lat, lng }));
+      await saveWarehouseGPSConfig(lat, lng, scaleFactor);
       setIsCalibrating(false);
       mapInstanceRef.current?.flyTo([lat, lng], 18, { duration: 1 });
     }
   };
 
-  const handleResetToDefaultGPS = () => {
+  const handleResetToDefaultGPS = async () => {
     setBaseCoords({ lat: DEFAULT_LAT, lng: DEFAULT_LNG });
     setCustomLatInput(DEFAULT_LAT.toString());
     setCustomLngInput(DEFAULT_LNG.toString());
-    localStorage.removeItem('kho_gps_coords');
+    setScaleFactor(1);
+    await saveWarehouseGPSConfig(DEFAULT_LAT, DEFAULT_LNG, 1);
     mapInstanceRef.current?.flyTo([DEFAULT_LAT, DEFAULT_LNG], 18, { duration: 1 });
   };
 

@@ -272,6 +272,65 @@ export const isSupabaseEnabled = () => {
   return !!supabaseClient;
 };
 
+// --- Warehouse GPS Coordinates Database APIs ---
+export const getWarehouseGPSConfig = async (): Promise<{ lat: number; lng: number; scale: number }> => {
+  const DEFAULT_GPS = { lat: 10.7932, lng: 106.6542, scale: 1 };
+
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('warehouse_settings')
+        .select('value')
+        .eq('id', 'warehouse_map_gps')
+        .single();
+      
+      if (!error && data && data.value) {
+        localStorage.setItem('kho_gps_coords', JSON.stringify(data.value));
+        return data.value;
+      }
+    } catch (e) {
+      console.warn('Không thể tải GPS từ Supabase, chuyển dùng cache:', e);
+    }
+  }
+
+  const cached = localStorage.getItem('kho_gps_coords');
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.lat && parsed.lng) return { lat: parsed.lat, lng: parsed.lng, scale: parsed.scale || 1 };
+    } catch (e) {}
+  }
+
+  return DEFAULT_GPS;
+};
+
+export const saveWarehouseGPSConfig = async (lat: number, lng: number, scale = 1): Promise<boolean> => {
+  const config = { lat, lng, scale, updated_at: new Date().toISOString() };
+  localStorage.setItem('kho_gps_coords', JSON.stringify(config));
+
+  if (supabaseClient) {
+    try {
+      const { error } = await supabaseClient
+        .from('warehouse_settings')
+        .upsert({
+          id: 'warehouse_map_gps',
+          value: config,
+          updated_at: config.updated_at
+        });
+
+      if (error) throw error;
+      console.log('⚡ Tọa độ GPS kho đã được cập nhật ngay lập tức lên Supabase!');
+      return true;
+    } catch (e) {
+      console.warn('Lưu GPS lên Supabase thất bại, xếp hàng đồng bộ offline:', e);
+      queueOfflineAction('create_warehouse', { action: 'update_gps', config });
+      return false;
+    }
+  }
+
+  return true;
+};
+
 // --- Realtime Subscription Listener ---
 export const subscribeToRealtimeChanges = (onDataChanged: () => void) => {
   if (!supabaseClient) return () => {};
@@ -286,6 +345,9 @@ export const subscribeToRealtimeChanges = (onDataChanged: () => void) => {
         onDataChanged();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouses' }, () => {
+        onDataChanged();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_settings' }, () => {
         onDataChanged();
       })
       .subscribe();

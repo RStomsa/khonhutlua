@@ -55,6 +55,16 @@ CREATE TABLE IF NOT EXISTS public.warehouse_sync_outbox (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 6. Warehouse Settings & Global GPS Coordinates Table
+CREATE TABLE IF NOT EXISTS public.warehouse_settings (
+    id TEXT PRIMARY KEY, -- e.g. 'warehouse_map_gps'
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Realtime for all tables
+ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouses, public.warehouse_locations, public.product_current_locations, public.product_location_movements, public.warehouse_settings;
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_locations_warehouse ON public.warehouse_locations(warehouse_id);
 CREATE INDEX IF NOT EXISTS idx_movements_product ON public.product_location_movements(product_code);
