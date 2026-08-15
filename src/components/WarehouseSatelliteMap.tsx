@@ -129,13 +129,17 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   const [quickTargetWh, setQuickTargetWh] = useState<string>('');
   const [isQuickTransferring, setIsQuickTransferring] = useState(false);
 
-  // Map product binding: Location ID -> Product object
-  const productByLocationMap = useMemo(() => {
-    const map = new Map<string, Product>();
+  // Map product binding: Location ID -> Array of Products (One slot holds multiple products)
+  const productsByLocationMap = useMemo(() => {
+    const map = new Map<string, Product[]>();
     currentLocations.forEach(cur => {
       if (cur.location_id) {
         const prod = products.find(p => p.id === cur.product_id);
-        if (prod) map.set(cur.location_id, prod);
+        if (prod) {
+          const list = map.get(cur.location_id) || [];
+          list.push(prod);
+          map.set(cur.location_id, list);
+        }
       }
     });
     return map;
@@ -178,19 +182,24 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
   // Compute Occupancy Stats for each warehouse
   const warehouseStats = useMemo(() => {
-    const stats: Record<string, { total: number; occupied: number; percentage: number }> = {};
+    const stats: Record<string, { total: number; occupied: number; totalProducts: number; percentage: number }> = {};
     warehouses.forEach(wh => {
       const whLocs = allLocations.filter(l => l.warehouse_id === wh.id);
       const total = whLocs.length;
       let occupied = 0;
+      let totalProducts = 0;
       whLocs.forEach(l => {
-        if (productByLocationMap.has(l.id)) occupied++;
+        const list = productsByLocationMap.get(l.id) || [];
+        if (list.length > 0) {
+          occupied++;
+          totalProducts += list.length;
+        }
       });
       const percentage = total > 0 ? Math.round((occupied / total) * 100) : 0;
-      stats[wh.id] = { total, occupied, percentage };
+      stats[wh.id] = { total, occupied, totalProducts, percentage };
     });
     return stats;
-  }, [warehouses, allLocations, productByLocationMap]);
+  }, [warehouses, allLocations, productsByLocationMap]);
 
   // Initialize Leaflet Map
   useEffect(() => {
@@ -263,7 +272,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
       const geom = dynamicWarehouseGeometries[wh.id];
       if (!geom) return;
 
-      const stat = warehouseStats[wh.id] || { total: 0, occupied: 0, percentage: 0 };
+      const stat = warehouseStats[wh.id] || { total: 0, occupied: 0, totalProducts: 0, percentage: 0 };
       const isFocused = activeWarehouseFocus === wh.id;
       const isDimmed = activeWarehouseFocus !== null && !isFocused;
 
@@ -294,7 +303,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
         <div class="lod-wh-pill ${isFocused ? 'focus' : ''} ${isDimmed ? 'dimmed' : ''}" style="border-left-color: ${geom.color};">
           <div class="pill-name" style="color: ${geom.color}">${wh.code} - ${wh.name}</div>
           <div class="pill-stats">
-            <span>${stat.occupied}/${stat.total} SP</span>
+            <span>${stat.totalProducts} SP (${stat.occupied}/${stat.total} ô)</span>
             <span class="pill-badge" style="background: ${stat.percentage > 80 ? '#dc2626' : '#059669'}">${stat.percentage}%</span>
           </div>
         </div>
@@ -303,8 +312,8 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
       const labelIcon = L.divIcon({
         html: labelHtml,
         className: 'custom-leaflet-label',
-        iconSize: [120, 36],
-        iconAnchor: [60, -8]
+        iconSize: [140, 36],
+        iconAnchor: [70, -8]
       });
 
       L.marker([geom.bounds[1][0], geom.center[1]], { icon: labelIcon, interactive: false }).addTo(layersGroup);
@@ -338,8 +347,8 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
         // Render Locations
         whLocs.forEach((loc, locIndex) => {
-          const product = productByLocationMap.get(loc.id);
-          const hasProduct = Boolean(product);
+          const prods = productsByLocationMap.get(loc.id) || [];
+          const hasProduct = prods.length > 0;
 
           if (filterMode === 'occupied' && !hasProduct) return;
           if (filterMode === 'empty' && hasProduct) return;
@@ -347,7 +356,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
           const isLocationSelected = selectedLocationId === loc.id;
           const isHighlighted =
             localSearch &&
-            ((product && product.product_code.toLowerCase().includes(localSearch.toLowerCase())) ||
+            (prods.some(p => p.product_code.toLowerCase().includes(localSearch.toLowerCase()) || p.name.toLowerCase().includes(localSearch.toLowerCase())) ||
               loc.code.toLowerCase().includes(localSearch.toLowerCase()));
 
           // Calculate metric position inside warehouse
@@ -403,19 +412,19 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
           cellRect.addTo(racksGroup);
 
-          // Rack Cell Text Badge
+          // Rack Cell Text Badge: Shows count of products in this slot
           const rackBadgeHtml = `
             <div class="sat-cell-badge ${hasProduct ? 'occupied' : 'empty'} ${isHighlighted ? 'highlight' : ''}">
               <div class="cell-code">${loc.code}</div>
-              ${hasProduct && product ? `<div class="cell-prod">${product.product_code}</div>` : ''}
+              ${hasProduct ? `<div class="cell-prod">${prods.length === 1 ? prods[0].product_code : `${prods.length} SP`}</div>` : ''}
             </div>
           `;
 
           const rackIcon = L.divIcon({
             html: rackBadgeHtml,
             className: 'sat-cell-icon',
-            iconSize: [40, 24],
-            iconAnchor: [20, 12]
+            iconSize: [44, 24],
+            iconAnchor: [22, 12]
           });
 
           const rackMarker = L.marker(cellCenter, { icon: rackIcon });
@@ -431,7 +440,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     warehouses,
     zones,
     allLocations,
-    productByLocationMap,
+    productsByLocationMap,
     dynamicWarehouseGeometries,
     warehouseStats,
     activeWarehouseFocus,
@@ -925,89 +934,104 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
             </div>
 
             <div className="inspector-body">
-              <div className="inspector-product-card">
-                <span className="inspector-label">Sản phẩm lưu trữ:</span>
-                {productByLocationMap.has(inspectedLocation.id) ? (
-                  <div className="inspector-item-active">
-                    <div className="inspector-item-code">
-                      📦 {productByLocationMap.get(inspectedLocation.id)?.product_code}
+              {(() => {
+                const prodsInLocation = productsByLocationMap.get(inspectedLocation.id) || [];
+                return (
+                  <>
+                    <div className="inspector-product-card">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <span className="inspector-label m-0">Sản phẩm đang chứa trong ô:</span>
+                        <span className={`badge ${prodsInLocation.length > 0 ? 'bg-primary-lt' : 'bg-secondary-lt'}`}>
+                          {prodsInLocation.length} sản phẩm
+                        </span>
+                      </div>
+                      {prodsInLocation.length > 0 ? (
+                        <div className="d-flex flex-column gap-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                          {prodsInLocation.map(p => (
+                            <div key={p.id} className="p-2 bg-light rounded border d-flex justify-content-between align-items-center">
+                              <div>
+                                <strong className="text-primary" style={{ fontSize: '0.85rem' }}>{p.product_code}</strong>
+                                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                                  {p.name} ({p.length_value} {p.length_unit})
+                                </div>
+                              </div>
+                              <span className="badge bg-success-lt" style={{ fontSize: '0.7rem' }}>Đang lưu</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="inspector-item-empty">
+                          <span className="text-muted">Vị trí hiện đang còn trống (0 sản phẩm)</span>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#065f46', marginTop: '2px' }}>
-                      {productByLocationMap.get(inspectedLocation.id)?.name} ({productByLocationMap.get(inspectedLocation.id)?.length_value} {productByLocationMap.get(inspectedLocation.id)?.length_unit})
+
+                    <div className="inspector-info-row">
+                      <span className="info-key">UUID Định danh:</span>
+                      <code className="info-val" style={{ fontSize: '0.68rem' }}>{inspectedLocation.id}</code>
                     </div>
-                    <span className="badge badge-completed" style={{ marginTop: '4px' }}>Đang lưu kho</span>
-                  </div>
-                ) : (
-                  <div className="inspector-item-empty">
-                    <span className="text-muted">Vị trí hiện đang còn trống</span>
-                  </div>
-                )}
-              </div>
 
-              <div className="inspector-info-row">
-                <span className="info-key">UUID Định danh:</span>
-                <code className="info-val" style={{ fontSize: '0.68rem' }}>{inspectedLocation.id}</code>
-              </div>
+                    <div className="inspector-info-row">
+                      <span className="info-key">Mã QR Kệ:</span>
+                      <code className="info-val">{inspectedLocation.qr_payload}</code>
+                    </div>
 
-              <div className="inspector-info-row">
-                <span className="info-key">Mã QR Kệ:</span>
-                <code className="info-val">{inspectedLocation.qr_payload}</code>
-              </div>
-
-              {/* Quick Transfer Slot Tool in Inspector */}
-              <div className="inspector-product-card" style={{ marginTop: '10px' }}>
-                <span className="inspector-label">🚚 Bốc nguyên ô này sang kho khác:</span>
-                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                  <select
-                    value={quickTargetWh}
-                    onChange={(e) => setQuickTargetWh(e.target.value)}
-                    className="form-input"
-                    style={{ fontSize: '0.78rem', padding: '6px 8px', flex: 1 }}
-                  >
-                    <option value="">Chọn kho đích...</option>
-                    {warehouses
-                      .filter(w => w.id !== inspectedLocation.warehouse_id)
-                      .map(w => (
-                        <option key={w.id} value={w.id}>
-                          Sang {w.code} ({w.name})
-                        </option>
-                      ))}
-                  </select>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ width: 'auto', padding: '6px 12px', fontSize: '0.78rem' }}
-                    disabled={!quickTargetWh || isQuickTransferring}
-                    onClick={async () => {
-                      if (!quickTargetWh) return;
-                      setIsQuickTransferring(true);
-                      try {
-                        const newLoc = await createWarehouseLocation(quickTargetWh, inspectedLocation.code);
-                        const product = productByLocationMap.get(inspectedLocation.id);
-                        if (product) {
-                          await executeProductMovement(
-                            product.id,
-                            newLoc.id,
-                            'Transfer Admin',
-                            `TRANSFER_${product.id}_${newLoc.id}_${Date.now()}`
-                          );
-                        }
-                        await deleteWarehouseLocation(inspectedLocation.id);
-                        alert(`Đã bốc ô ${inspectedLocation.code} sang Kho đích thành công!`);
-                        setInspectedLocation(null);
-                        setQuickTargetWh('');
-                        if (onDataChanged) onDataChanged();
-                      } catch (err: any) {
-                        alert(err.message || 'Lỗi khi bốc ô');
-                      } finally {
-                        setIsQuickTransferring(false);
-                      }
-                    }}
-                  >
-                    <ArrowRightLeft size={13} /> Bốc ô
-                  </button>
-                </div>
-              </div>
+                    {/* Quick Transfer Slot Tool in Inspector */}
+                    <div className="inspector-product-card" style={{ marginTop: '10px' }}>
+                      <span className="inspector-label">🚚 Bốc nguyên ô (chứa {prodsInLocation.length} SP) sang kho khác:</span>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <select
+                          value={quickTargetWh}
+                          onChange={(e) => setQuickTargetWh(e.target.value)}
+                          className="form-input"
+                          style={{ fontSize: '0.78rem', padding: '6px 8px', flex: 1 }}
+                        >
+                          <option value="">Chọn kho đích...</option>
+                          {warehouses
+                            .filter(w => w.id !== inspectedLocation.warehouse_id)
+                            .map(w => (
+                              <option key={w.id} value={w.id}>
+                                Sang {w.code} ({w.name})
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          style={{ width: 'auto', padding: '6px 12px', fontSize: '0.78rem' }}
+                          disabled={!quickTargetWh || isQuickTransferring}
+                          onClick={async () => {
+                            if (!quickTargetWh) return;
+                            setIsQuickTransferring(true);
+                            try {
+                              const newLoc = await createWarehouseLocation(quickTargetWh, inspectedLocation.code);
+                              for (const product of prodsInLocation) {
+                                await executeProductMovement(
+                                  product.id,
+                                  newLoc.id,
+                                  'Transfer Admin',
+                                  `TRANSFER_${product.id}_${newLoc.id}_${Date.now()}`
+                                );
+                              }
+                              await deleteWarehouseLocation(inspectedLocation.id);
+                              alert(`Đã bốc ô ${inspectedLocation.code} (kèm ${prodsInLocation.length} sản phẩm) sang Kho đích thành công!`);
+                              setInspectedLocation(null);
+                              setQuickTargetWh('');
+                              if (onDataChanged) onDataChanged();
+                            } catch (err: any) {
+                              alert(err.message || 'Lỗi khi bốc ô');
+                            } finally {
+                              setIsQuickTransferring(false);
+                            }
+                          }}
+                        >
+                          <ArrowRightLeft size={13} /> Bốc ô
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
 
               <div className="inspector-history-section">
                 <h5 className="history-title"><Clock size={14} /> Lịch sử luân chuyển</h5>

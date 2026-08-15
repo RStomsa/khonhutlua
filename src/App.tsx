@@ -727,6 +727,7 @@ function App() {
                           {warehouses.map(wh => {
                             const whLocs = allLocations.filter(l => l.warehouse_id === wh.id);
                             const whOccupied = whLocs.filter(l => currentLocations.some(c => c.location_id === l.id)).length;
+                            const whProds = currentLocations.filter(c => c.location_id && whLocs.some(l => l.id === c.location_id)).length;
                             const percent = whLocs.length > 0 ? Math.round((whOccupied / whLocs.length) * 100) : 0;
 
                             return (
@@ -745,7 +746,7 @@ function App() {
                                       <strong style={{ color: '#0f172a' }}>{wh.code} - {wh.name}</strong>
                                     </div>
                                     <span className="small font-weight-bold" style={{ color: wh.color }}>
-                                      {whOccupied}/{whLocs.length} ô ({percent}%)
+                                      {whProds} SP ({whOccupied}/{whLocs.length} ô có hàng)
                                     </span>
                                   </div>
                                   <div className="progress progress-sm" style={{ height: '6px' }}>

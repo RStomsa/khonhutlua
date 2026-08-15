@@ -47,7 +47,8 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
   // Bulk Form State
   const [bulkText, setBulkText] = useState('');
   const [bulkWarehouseId, setBulkWarehouseId] = useState(warehouses[0]?.id || '');
-  const [autoAssignEmptySlots, setAutoAssignEmptySlots] = useState(true);
+  const [bulkSlotChoice, setBulkSlotChoice] = useState<'spread_slots' | 'same_slot' | 'none'>('same_slot');
+  const [bulkTargetSameLocationId, setBulkTargetSameLocationId] = useState('');
   const [parsedPreview, setParsedPreview] = useState<Array<{ code: string; length: number; unit: string }>>([]);
 
   // Status
@@ -56,14 +57,22 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
 
   if (!isOpen) return null;
 
-  // Occupied locations set
-  const occupiedLocIds = new Set(
-    currentLocations.filter(c => c.location_id).map(c => c.location_id!)
-  );
+  // Number of products currently in each location
+  const productCountByLocation: Record<string, number> = {};
+  currentLocations.forEach(c => {
+    if (c.location_id) {
+      productCountByLocation[c.location_id] = (productCountByLocation[c.location_id] || 0) + 1;
+    }
+  });
 
-  // Filter available empty locations for single warehouse
+  // Filter available locations for single warehouse
   const availableLocationsForSingleWh = allLocations.filter(
     l => l.warehouse_id === singleWarehouseId
+  );
+
+  // Filter locations for bulk warehouse
+  const locationsForBulkWh = allLocations.filter(
+    l => l.warehouse_id === bulkWarehouseId
   );
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
@@ -143,14 +152,15 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
 
     setIsProcessing(true);
     try {
-      // Find empty location slots in selected warehouse
       const emptyLocations = allLocations.filter(
-        l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id)
+        l => l.warehouse_id === bulkWarehouseId && (productCountByLocation[l.id] || 0) === 0
       );
 
       const itemsToImport = parsedPreview.map((item, idx) => {
         let assignedLocId: string | null = null;
-        if (autoAssignEmptySlots && idx < emptyLocations.length) {
+        if (bulkSlotChoice === 'same_slot') {
+          assignedLocId = bulkTargetSameLocationId || null;
+        } else if (bulkSlotChoice === 'spread_slots' && idx < emptyLocations.length) {
           assignedLocId = emptyLocations[idx].id;
         }
         return {
@@ -323,10 +333,10 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
                   >
                     <option value="">-- Chưa xếp vào ô (để trống) --</option>
                     {availableLocationsForSingleWh.map(l => {
-                      const isOccupied = occupiedLocIds.has(l.id);
+                      const count = productCountByLocation[l.id] || 0;
                       return (
                         <option key={l.id} value={l.id}>
-                          {l.code} {isOccupied ? '(⚠️ Đang có hàng)' : '(Trống)'}
+                          Ô {l.code} ({count > 0 ? `Đang có sẵn ${count} SP` : 'Đang trống'})
                         </option>
                       );
                     })}
@@ -395,20 +405,23 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
               </div>
             </div>
 
-            {/* Warehouse destination & Auto slot filling */}
+            {/* Warehouse destination & Multi-Product Slot Assignment */}
             <div className="glass-card" style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
               <h4 style={{ fontSize: '0.92rem', fontWeight: 800, color: '#1e293b', marginBottom: '10px' }}>
-                Cấu Hình Xếp Kho Tự Động
+                Cấu Hình Xếp Kho & Vị Trí Ô Kệ
               </h4>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', alignItems: 'center' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '12px', alignItems: 'end' }}>
                 <div>
                   <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '3px' }}>
-                    Kho Đích Nhập Hàng:
+                    1. Kho Đích:
                   </label>
                   <select
                     value={bulkWarehouseId}
-                    onChange={(e) => setBulkWarehouseId(e.target.value)}
+                    onChange={(e) => {
+                      setBulkWarehouseId(e.target.value);
+                      setBulkTargetSameLocationId('');
+                    }}
                     className="form-input"
                   >
                     {warehouses.map(w => (
@@ -419,17 +432,43 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
                   </select>
                 </div>
 
-                <div style={{ paddingTop: '16px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
-                    <input
-                      type="checkbox"
-                      checked={autoAssignEmptySlots}
-                      onChange={(e) => setAutoAssignEmptySlots(e.target.checked)}
-                      style={{ width: '16px', height: '16px' }}
-                    />
-                    Tự động xếp lần lượt vào các ô còn TRỐNG của kho này
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '3px' }}>
+                    2. Cách Thức Xếp Ô:
                   </label>
+                  <select
+                    value={bulkSlotChoice}
+                    onChange={(e) => setBulkSlotChoice(e.target.value as any)}
+                    className="form-input"
+                  >
+                    <option value="same_slot">🎯 Xếp TẤT CẢ vào CÙNG 1 Ô (1 ô chứa nhiều SP)</option>
+                    <option value="spread_slots">🔀 Chia đều / Xếp vào các ô trống</option>
+                    <option value="none">📋 Chỉ thêm danh mục (chờ xếp kho)</option>
+                  </select>
                 </div>
+
+                {bulkSlotChoice === 'same_slot' && (
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '3px' }}>
+                      3. Chọn Ô Sẽ Chứa Cả Lô Hàng Này:
+                    </label>
+                    <select
+                      value={bulkTargetSameLocationId}
+                      onChange={(e) => setBulkTargetSameLocationId(e.target.value)}
+                      className="form-input"
+                    >
+                      <option value="">-- Chọn 1 ô kệ để chứa cả lô --</option>
+                      {locationsForBulkWh.map(l => {
+                        const count = productCountByLocation[l.id] || 0;
+                        return (
+                          <option key={l.id} value={l.id}>
+                            Ô {l.code} ({count > 0 ? `Đang có sẵn ${count} SP` : 'Đang trống'})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -441,9 +480,9 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
                     <ListPlus size={16} className="text-primary me-2" />
                     Xem Trước Phân Bổ Vị Trí ({parsedPreview.length} sản phẩm)
                   </h4>
-                  {autoAssignEmptySlots && (
-                    <span className={`badge ${allLocations.filter(l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id)).length >= parsedPreview.length ? 'bg-success-lt' : 'bg-warning-lt'}`}>
-                      {allLocations.filter(l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id)).length} Ô trống khả dụng
+                  {bulkSlotChoice === 'same_slot' && bulkTargetSameLocationId && (
+                    <span className="badge bg-primary-lt">
+                      Tất cả {parsedPreview.length} SP sẽ vào Ô {allLocations.find(l => l.id === bulkTargetSameLocationId)?.code}
                     </span>
                   )}
                 </div>
@@ -461,9 +500,15 @@ export const ProductImportManager: React.FC<ProductImportManagerProps> = ({
                       </thead>
                       <tbody>
                         {parsedPreview.map((item, idx) => {
-                          const emptyLocs = allLocations.filter(l => l.warehouse_id === bulkWarehouseId && !occupiedLocIds.has(l.id));
-                          const assignedLoc = autoAssignEmptySlots && idx < emptyLocs.length ? emptyLocs[idx] : null;
+                          const emptyLocs = allLocations.filter(l => l.warehouse_id === bulkWarehouseId && (productCountByLocation[l.id] || 0) === 0);
                           const targetWh = warehouses.find(w => w.id === bulkWarehouseId);
+                          let assignedLoc: WarehouseLocation | null = null;
+
+                          if (bulkSlotChoice === 'same_slot') {
+                            assignedLoc = allLocations.find(l => l.id === bulkTargetSameLocationId) || null;
+                          } else if (bulkSlotChoice === 'spread_slots' && idx < emptyLocs.length) {
+                            assignedLoc = emptyLocs[idx];
+                          }
 
                           return (
                             <tr key={idx}>
