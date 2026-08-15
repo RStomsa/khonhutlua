@@ -9,10 +9,11 @@ import {
   Settings2,
   PackageCheck
 } from 'lucide-react';
-import type { Warehouse, WarehouseLocation } from '../lib/database';
+import type { Warehouse, WarehouseZone, WarehouseLocation } from '../lib/database';
 
 interface QRPrintManagerProps {
   warehouses: Warehouse[];
+  zones?: WarehouseZone[];
   allLocations: WarehouseLocation[];
   onClose: () => void;
   initialWarehouseId?: string;
@@ -21,10 +22,12 @@ interface QRPrintManagerProps {
 interface LocationWithQR extends WarehouseLocation {
   qrDataUrl: string;
   warehouseName: string;
+  zoneName?: string;
 }
 
 export const QRPrintManager: React.FC<QRPrintManagerProps> = ({
   warehouses,
+  zones = [],
   allLocations,
   onClose,
   initialWarehouseId
@@ -50,7 +53,9 @@ export const QRPrintManager: React.FC<QRPrintManagerProps> = ({
 
       for (const loc of allLocations) {
         const wh = warehouses.find(w => w.id === loc.warehouse_id);
-        const whName = wh ? wh.name : loc.warehouse_id;
+        const whName = wh ? `${wh.code} - ${wh.name}` : loc.warehouse_id;
+        const zone = zones.find(z => z.id === loc.zone_id);
+        const zoneName = zone ? zone.name : undefined;
 
         try {
           // Generate high-resolution QR code (margin 1, error correction level H)
@@ -67,7 +72,8 @@ export const QRPrintManager: React.FC<QRPrintManagerProps> = ({
           results.push({
             ...loc,
             qrDataUrl: dataUrl,
-            warehouseName: whName
+            warehouseName: whName,
+            zoneName
           });
         } catch (err) {
           console.error('Error generating QR for', loc.id, err);
@@ -270,7 +276,8 @@ export const QRPrintManager: React.FC<QRPrintManagerProps> = ({
 
                       <div className="label-details">
                         <div className="label-loc-code">{loc.code}</div>
-                        <div className="label-full-id">{loc.id}</div>
+                        {loc.zoneName && <div className="label-zone-name" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#2563eb' }}>{loc.zoneName}</div>}
+                        <div className="label-full-id" style={{ fontSize: '0.65rem', color: '#64748b' }}>{loc.id.substring(0, 18)}...</div>
                         <div className="label-instruction">Quét khi chuyển/lấy hàng</div>
                       </div>
                     </div>

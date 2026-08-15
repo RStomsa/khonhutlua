@@ -1,183 +1,48 @@
+// ==============================================================================
+// Production Data Access Layer & Repository Engine for Kho Nhựt Lúa
+// ==============================================================================
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type {
+  Warehouse,
+  WarehouseZone,
+  WarehouseLocation,
+  Product,
+  ProductCurrentLocation,
+  ProductLocationMovement,
+  SyncAction
+} from '../types/warehouse';
 
-// --- Interface Definitions ---
-export interface Warehouse {
-  id: string;
-  name: string;
-  columns: number;
-  rows: number;
-  type: 'grid' | 'aisle';
-  created_at?: string;
-}
+import {
+  STORES,
+  idbGetAll,
+  idbPutItems,
+  idbPutItem,
+  idbDeleteItem,
+  queueIndexedDbOutbox,
+  getIndexedDbOutbox,
+  markIndexedDbOutboxDone,
+  clearIndexedDbData
+} from './offline/indexedDb';
 
-export interface WarehouseLocation {
-  id: string;
-  warehouse_id: string;
-  code: string;
-  column_index: number;
-  row_index: number;
-  qr_payload: string;
-  created_at?: string;
-}
+export * from '../types/warehouse';
 
-export interface ProductCurrentLocation {
-  product_code: string;
-  location_id: string | null;
-  updated_at?: string;
-  updated_by?: string;
-}
-
-export interface ProductLocationMovement {
-  id: string;
-  product_code: string;
-  from_location_id: string | null;
-  to_location_id: string | null;
-  status: 'started' | 'completed';
-  ocr_confidence: number | null;
-  ocr_image_path?: string | null;
-  gps_lat: number | null;
-  gps_lng: number | null;
-  user_name: string | null;
-  created_at: string;
-}
-
-export interface SyncAction {
-  id: string;
-  action_type: 'start_move' | 'complete_move' | 'create_warehouse';
-  payload: any;
-  status: 'pending' | 'synced' | 'failed';
-  error_message?: string | null;
-  created_at: string;
-}
-
-// --- Seed Constants ---
-const INITIAL_WAREHOUSES: Warehouse[] = [
-  { id: 'K1', name: 'K1 Blue', columns: 3, rows: 4, type: 'grid' },
-  { id: 'K2', name: 'K2 Pink', columns: 3, rows: 2, type: 'grid' },
-  { id: 'K3', name: 'K3 Red', columns: 2, rows: 3, type: 'grid' },
-  { id: 'K4', name: 'K4 Green', columns: 2, rows: 1, type: 'aisle' }
-];
-
-const generateK1Locations = (): WarehouseLocation[] => {
-  const locs: WarehouseLocation[] = [];
-  const rows = ['A', 'B', 'C', 'D'];
-  for (let rIndex = 0; rIndex < 4; rIndex++) {
-    for (let cIndex = 0; cIndex < 3; cIndex++) {
-      const code = `${rows[rIndex]}0${cIndex + 1}`;
-      locs.push({
-        id: `K1-${code}`,
-        warehouse_id: 'K1',
-        code,
-        column_index: cIndex,
-        row_index: rIndex,
-        qr_payload: `WAREHOUSE_LOCATION:K1-${code}`
-      });
-    }
-  }
-  return locs;
-};
-
-const generateK2Locations = (): WarehouseLocation[] => {
-  const locs: WarehouseLocation[] = [];
-  const rows = ['A', 'B'];
-  for (let rIndex = 0; rIndex < 2; rIndex++) {
-    for (let cIndex = 0; cIndex < 3; cIndex++) {
-      const code = `${rows[rIndex]}0${cIndex + 1}`;
-      locs.push({
-        id: `K2-${code}`,
-        warehouse_id: 'K2',
-        code,
-        column_index: cIndex,
-        row_index: rIndex,
-        qr_payload: `WAREHOUSE_LOCATION:K2-${code}`
-      });
-    }
-  }
-  return locs;
-};
-
-const generateK3Locations = (): WarehouseLocation[] => {
-  const locs: WarehouseLocation[] = [];
-  const rows = ['A', 'B', 'C'];
-  for (let rIndex = 0; rIndex < 3; rIndex++) {
-    for (let cIndex = 0; cIndex < 2; cIndex++) {
-      const code = `${rows[rIndex]}0${cIndex + 1}`;
-      locs.push({
-        id: `K3-${code}`,
-        warehouse_id: 'K3',
-        code,
-        column_index: cIndex,
-        row_index: rIndex,
-        qr_payload: `WAREHOUSE_LOCATION:K3-${code}`
-      });
-    }
-  }
-  return locs;
-};
-
-const generateK4Locations = (): WarehouseLocation[] => [
-  { id: 'K4-D1', warehouse_id: 'K4', code: 'D1', column_index: 0, row_index: 0, qr_payload: 'WAREHOUSE_LOCATION:K4-D1' },
-  { id: 'K4-D2', warehouse_id: 'K4', code: 'D2', column_index: 1, row_index: 0, qr_payload: 'WAREHOUSE_LOCATION:K4-D2' }
-];
-
-const INITIAL_LOCATIONS: WarehouseLocation[] = [
-  ...generateK1Locations(),
-  ...generateK2Locations(),
-  ...generateK3Locations(),
-  ...generateK4Locations()
-];
-
-const INITIAL_PRODUCT_LOCATIONS: ProductCurrentLocation[] = [
-  { product_code: 'e120.30', location_id: 'K1-B02', updated_at: new Date().toISOString(), updated_by: 'System Seed' },
-  { product_code: 'p500.45', location_id: 'K2-A03', updated_at: new Date().toISOString(), updated_by: 'System Seed' },
-  { product_code: 'a100.99', location_id: 'K3-C01', updated_at: new Date().toISOString(), updated_by: 'System Seed' },
-  { product_code: 'x888.88', location_id: 'K4-D1', updated_at: new Date().toISOString(), updated_by: 'System Seed' }
-];
-
-const INITIAL_MOVEMENTS: ProductLocationMovement[] = [
-  {
-    id: 'm1',
-    product_code: 'e120.30',
-    from_location_id: null,
-    to_location_id: 'K1-B02',
-    status: 'completed',
-    ocr_confidence: 94.5,
-    gps_lat: 10.762622,
-    gps_lng: 106.660172,
-    user_name: 'Admin Seed',
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString()
-  },
-  {
-    id: 'm2',
-    product_code: 'p500.45',
-    from_location_id: null,
-    to_location_id: 'K2-A03',
-    status: 'completed',
-    ocr_confidence: 88.2,
-    gps_lat: 10.762990,
-    gps_lng: 106.660500,
-    user_name: 'Admin Seed',
-    created_at: new Date(Date.now() - 3600000).toISOString()
-  }
-];
-
-// --- Supabase Settings & Auto Environment Detection ---
+// --- Production Environment Resolution ---
 const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
 const envAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-let supabaseUrl = localStorage.getItem('supabase_url') || envUrl;
-let supabaseAnonKey = localStorage.getItem('supabase_anon_key') || envAnonKey;
 let supabaseClient: SupabaseClient | null = null;
 
 const initSupabase = () => {
-  if (supabaseUrl && supabaseAnonKey) {
+  if (envUrl && envAnonKey) {
     try {
-      supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { persistSession: true, autoRefreshToken: true },
+      supabaseClient = createClient(envUrl, envAnonKey, {
+        auth: { persistSession: true },
         realtime: { params: { eventsPerSecond: 10 } }
       });
+      console.log('⚡ Supabase Client initialized successfully from Environment.');
     } catch (e) {
-      console.error('Failed to init Supabase client:', e);
+      console.error('Failed to initialize Supabase client:', e);
       supabaseClient = null;
     }
   } else {
@@ -187,393 +52,674 @@ const initSupabase = () => {
 
 initSupabase();
 
-// --- Local Storage Keys ---
-const LS_KEYS = {
-  WAREHOUSES: 'kho_pwa_warehouses',
-  LOCATIONS: 'kho_pwa_locations',
-  PRODUCT_LOCATIONS: 'kho_pwa_product_locations',
-  MOVEMENTS: 'kho_pwa_movements',
-  SYNC_OUTBOX: 'kho_pwa_sync_outbox'
-};
+export const isSupabaseEnabled = (): boolean => !!supabaseClient;
 
-// --- Initialization Helper ---
-export const initializeSeed = (force = false) => {
-  if (force || !localStorage.getItem(LS_KEYS.WAREHOUSES)) {
-    localStorage.setItem(LS_KEYS.WAREHOUSES, JSON.stringify(INITIAL_WAREHOUSES));
-    localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(INITIAL_LOCATIONS));
-    localStorage.setItem(LS_KEYS.PRODUCT_LOCATIONS, JSON.stringify(INITIAL_PRODUCT_LOCATIONS));
-    localStorage.setItem(LS_KEYS.MOVEMENTS, JSON.stringify(INITIAL_MOVEMENTS));
-    localStorage.setItem(LS_KEYS.SYNC_OUTBOX, JSON.stringify([]));
+export const getSupabaseConfig = () => ({
+  url: envUrl,
+  key: envAnonKey,
+  isFromEnv: Boolean(envUrl && envAnonKey),
+  isEnabled: !!supabaseClient
+});
+
+// --- Dynamic Seed Data for First-Time Setup / Offline Fallback ---
+const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
+  {
+    id: 'a1111111-1111-1111-1111-111111111111',
+    code: 'K1',
+    name: 'Kho 1 - Kho Lúa Nhựt Chính',
+    width_m: 15.0,
+    length_m: 30.0,
+    gps_lat: 10.776889,
+    gps_lng: 106.700806,
+    color: '#2563eb',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'a2222222-2222-2222-2222-222222222222',
+    code: 'K2',
+    name: 'Kho 2 - Kho Phụ Phía Bắc',
+    width_m: 12.0,
+    length_m: 25.0,
+    gps_lat: 10.777200,
+    gps_lng: 106.701100,
+    color: '#10b981',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'a3333333-3333-3333-3333-333333333333',
+    code: 'K3',
+    name: 'Kho 3 - Kho Đóng Gói & Xuất Hàng',
+    width_m: 10.0,
+    length_m: 20.0,
+    gps_lat: 10.776600,
+    gps_lng: 106.701400,
+    color: '#f59e0b',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'a4444444-4444-4444-4444-444444444444',
+    code: 'K4',
+    name: 'Kho 4 - Dãy Ngoài Sân Vận Chuyển',
+    width_m: 8.0,
+    length_m: 35.0,
+    gps_lat: 10.776300,
+    gps_lng: 106.700600,
+    color: '#8b5cf6',
+    created_at: new Date().toISOString()
+  }
+];
+
+const DEFAULT_SEED_ZONES: WarehouseZone[] = [
+  {
+    id: 'b1111111-1111-1111-1111-111111111111',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    code: 'KHU_120',
+    name: 'Khu 120cm',
+    color: '#3b82f6',
+    x_m: 0.0,
+    y_m: 0.0,
+    width_m: 5.0,
+    height_m: 10.0,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'b1111111-1111-1111-1111-222222222222',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    code: 'KHU_100',
+    name: 'Khu 100cm',
+    color: '#60a5fa',
+    x_m: 5.0,
+    y_m: 0.0,
+    width_m: 5.0,
+    height_m: 10.0,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'b1111111-1111-1111-1111-333333333333',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    code: 'KHU_80',
+    name: 'Khu 80cm',
+    color: '#93c5fd',
+    x_m: 10.0,
+    y_m: 0.0,
+    width_m: 5.0,
+    height_m: 10.0,
+    created_at: new Date().toISOString()
+  }
+];
+
+const DEFAULT_SEED_LOCATIONS: WarehouseLocation[] = [
+  {
+    id: 'c1111111-1111-1111-1111-000000000a01',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-111111111111',
+    code: 'A01',
+    x_m: 0.0,
+    y_m: 0.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a01',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000a02',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-111111111111',
+    code: 'A02',
+    x_m: 1.5,
+    y_m: 0.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a02',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000a03',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-111111111111',
+    code: 'A03',
+    x_m: 3.0,
+    y_m: 0.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a03',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000b01',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-222222222222',
+    code: 'B01',
+    x_m: 0.0,
+    y_m: 2.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b01',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000b02',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-222222222222',
+    code: 'B02',
+    x_m: 1.5,
+    y_m: 2.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b02',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000b03',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-222222222222',
+    code: 'B03',
+    x_m: 3.0,
+    y_m: 2.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b03',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000c01',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-333333333333',
+    code: 'C01',
+    x_m: 0.0,
+    y_m: 4.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c01',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000c02',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-333333333333',
+    code: 'C02',
+    x_m: 1.5,
+    y_m: 4.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c02',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c1111111-1111-1111-1111-000000000c03',
+    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
+    zone_id: 'b1111111-1111-1111-1111-333333333333',
+    code: 'C03',
+    x_m: 3.0,
+    y_m: 4.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c03',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c2222222-2222-2222-2222-000000000a01',
+    warehouse_id: 'a2222222-2222-2222-2222-222222222222',
+    zone_id: null,
+    code: 'A01',
+    x_m: 0.0,
+    y_m: 0.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a01',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c2222222-2222-2222-2222-000000000a02',
+    warehouse_id: 'a2222222-2222-2222-2222-222222222222',
+    zone_id: null,
+    code: 'A02',
+    x_m: 1.5,
+    y_m: 0.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a02',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'c2222222-2222-2222-2222-000000000a03',
+    warehouse_id: 'a2222222-2222-2222-2222-222222222222',
+    zone_id: null,
+    code: 'A03',
+    x_m: 3.0,
+    y_m: 0.0,
+    width_m: 1.5,
+    height_m: 1.5,
+    qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a03',
+    created_at: new Date().toISOString()
+  }
+];
+
+const DEFAULT_SEED_PRODUCTS: Product[] = [
+  {
+    id: 'e1203000-0000-0000-0000-000000000001',
+    product_code: 'e120.30',
+    name: 'Thanh Nhựa e120 bản 30mm',
+    length_value: 120.0,
+    length_unit: 'cm',
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'e1003400-0000-0000-0000-000000000002',
+    product_code: 'e100.34',
+    name: 'Thanh Nhựa e100 bản 34mm',
+    length_value: 100.0,
+    length_unit: 'cm',
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'e8034300-0000-0000-0000-000000000003',
+    product_code: 'e80.343',
+    name: 'Thanh Nhựa e80 bản 34.3mm',
+    length_value: 80.0,
+    length_unit: 'cm',
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'p5004500-0000-0000-0000-000000000004',
+    product_code: 'p500.45',
+    name: 'Ống Profile p500 bản 45mm',
+    length_value: 500.0,
+    length_unit: 'cm',
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'a1009900-0000-0000-0000-000000000005',
+    product_code: 'a100.99',
+    name: 'Khung Nhôm a100 cao cấp',
+    length_value: 100.0,
+    length_unit: 'cm',
+    status: 'active',
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'x8888800-0000-0000-0000-000000000006',
+    product_code: 'x888.88',
+    name: 'Thanh Chữ X Series 888',
+    length_value: 88.0,
+    length_unit: 'cm',
+    status: 'active',
+    created_at: new Date().toISOString()
+  }
+];
+
+const DEFAULT_SEED_PRODUCT_LOCATIONS: ProductCurrentLocation[] = [
+  {
+    id: 'd1111111-0000-0000-0000-000000000001',
+    product_id: 'e1203000-0000-0000-0000-000000000001',
+    location_id: 'c1111111-1111-1111-1111-000000000b02',
+    updated_at: new Date().toISOString(),
+    updated_by: 'Khanh Admin'
+  },
+  {
+    id: 'd1111111-0000-0000-0000-000000000002',
+    product_id: 'e1003400-0000-0000-0000-000000000002',
+    location_id: 'c1111111-1111-1111-1111-000000000a01',
+    updated_at: new Date().toISOString(),
+    updated_by: 'Khanh Admin'
+  },
+  {
+    id: 'd1111111-0000-0000-0000-000000000003',
+    product_id: 'e8034300-0000-0000-0000-000000000003',
+    location_id: 'c1111111-1111-1111-1111-000000000c03',
+    updated_at: new Date().toISOString(),
+    updated_by: 'Khanh Admin'
+  },
+  {
+    id: 'd1111111-0000-0000-0000-000000000004',
+    product_id: 'p5004500-0000-0000-0000-000000000004',
+    location_id: 'c2222222-2222-2222-2222-000000000a01',
+    updated_at: new Date().toISOString(),
+    updated_by: 'Khanh Admin'
+  }
+];
+
+// Initialize IndexedDB with Seed if empty
+export const initializeProductionSeed = async () => {
+  const existing = await idbGetAll<Warehouse>(STORES.WAREHOUSES);
+  if (existing.length === 0) {
+    console.log('📦 Seeding initial data to IndexedDB...');
+    await idbPutItems(STORES.WAREHOUSES, DEFAULT_SEED_WAREHOUSES);
+    await idbPutItems(STORES.ZONES, DEFAULT_SEED_ZONES);
+    await idbPutItems(STORES.LOCATIONS, DEFAULT_SEED_LOCATIONS);
+    await idbPutItems(STORES.PRODUCTS, DEFAULT_SEED_PRODUCTS);
+    await idbPutItems(STORES.PRODUCT_LOCATIONS, DEFAULT_SEED_PRODUCT_LOCATIONS);
   }
 };
 
-// Run seed init automatically
-initializeSeed();
+initializeProductionSeed();
 
-// --- Auto Push Seed Data to Supabase if Server Database is Empty ---
-export const autoBootstrapSupabaseDatabase = async () => {
-  if (!supabaseClient) return;
+// Auto Bootstrap Supabase if Server Database is Empty
+export const autoBootstrapSupabaseDatabase = async (): Promise<boolean> => {
+  if (!supabaseClient) return false;
   try {
-    const { data: existingWh, error } = await supabaseClient
+    const { data: existingWh } = await supabaseClient
       .from('warehouses')
       .select('id')
       .limit(1);
 
-    if (!error && (!existingWh || existingWh.length === 0)) {
-      console.log('⚡ Máy chủ Supabase chưa có dữ liệu, đang tự động đẩy sơ đồ kho, kệ và sản phẩm mẫu lên...');
-      await supabaseClient.from('warehouses').upsert(INITIAL_WAREHOUSES);
-      await supabaseClient.from('warehouse_locations').upsert(INITIAL_LOCATIONS);
-      await supabaseClient.from('product_current_locations').upsert(INITIAL_PRODUCT_LOCATIONS);
-      await supabaseClient.from('product_location_movements').upsert(INITIAL_MOVEMENTS);
-      console.log('✅ Tự động khởi tạo dữ liệu kho lên Supabase thành công!');
+    if (!existingWh || existingWh.length === 0) {
+      console.log('⚡ Server database is empty. Bootstrapping production seed...');
+      await supabaseClient.from('warehouses').upsert(DEFAULT_SEED_WAREHOUSES);
+      await supabaseClient.from('warehouse_zones').upsert(DEFAULT_SEED_ZONES);
+      await supabaseClient.from('warehouse_locations').upsert(DEFAULT_SEED_LOCATIONS);
+      await supabaseClient.from('products').upsert(DEFAULT_SEED_PRODUCTS);
+      await supabaseClient.from('product_current_locations').upsert(DEFAULT_SEED_PRODUCT_LOCATIONS);
+      console.log('✅ Server database bootstrap completed!');
     }
+    return true;
   } catch (err) {
-    console.warn('Lỗi kiểm tra dữ liệu Supabase:', err);
+    console.warn('Auto-bootstrap failed:', err);
+    return false;
   }
 };
 
-// Auto-bootstrap whenever connected
 if (supabaseClient) {
   autoBootstrapSupabaseDatabase();
 }
 
-// --- Configuration APIs ---
-export const saveSupabaseConfig = (url: string, key: string) => {
-  const cleanUrl = url.trim();
-  const cleanKey = key.trim();
-  localStorage.setItem('supabase_url', cleanUrl);
-  localStorage.setItem('supabase_anon_key', cleanKey);
-  supabaseUrl = cleanUrl;
-  supabaseAnonKey = cleanKey;
-  initSupabase();
-  if (supabaseClient) {
-    autoBootstrapSupabaseDatabase();
-  }
-};
-
-export const clearSupabaseConfig = () => {
-  localStorage.removeItem('supabase_url');
-  localStorage.removeItem('supabase_anon_key');
-  supabaseUrl = envUrl;
-  supabaseAnonKey = envAnonKey;
-  initSupabase();
-};
-
-export const getSupabaseConfig = () => {
-  return {
-    url: supabaseUrl,
-    key: supabaseAnonKey,
-    isFromEnv: Boolean(envUrl && envAnonKey && (supabaseUrl === envUrl)),
-    isEnabled: !!supabaseClient
-  };
-};
-
-export const isSupabaseEnabled = () => {
-  return !!supabaseClient;
-};
-
-// --- Warehouse GPS Coordinates Database APIs ---
-export const getWarehouseGPSConfig = async (): Promise<{ lat: number; lng: number; scale: number }> => {
-  const DEFAULT_GPS = { lat: 10.7932, lng: 106.6542, scale: 1 };
-
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('warehouse_settings')
-        .select('value')
-        .eq('id', 'warehouse_map_gps')
-        .single();
-      
-      if (!error && data && data.value) {
-        localStorage.setItem('kho_gps_coords', JSON.stringify(data.value));
-        return data.value;
-      }
-    } catch (e) {
-      console.warn('Không thể tải GPS từ Supabase, chuyển dùng cache:', e);
-    }
-  }
-
-  const cached = localStorage.getItem('kho_gps_coords');
-  if (cached) {
-    try {
-      const parsed = JSON.parse(cached);
-      if (parsed.lat && parsed.lng) return { lat: parsed.lat, lng: parsed.lng, scale: parsed.scale || 1 };
-    } catch (e) {}
-  }
-
-  return DEFAULT_GPS;
-};
-
-// --- Per-Warehouse Geometries Configuration ---
-export interface WarehouseGeometryConfig {
-  centerLat: number;
-  centerLng: number;
-  width: number;  // in degrees (approx 50m = 0.0005)
-  height: number; // in degrees (approx 40m = 0.0004)
-  color?: string;
-}
-
-export type AllWarehousesGeometries = Record<string, WarehouseGeometryConfig>;
-
-export const getWarehousesGeometriesConfig = async (): Promise<AllWarehousesGeometries> => {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('warehouse_settings')
-        .select('value')
-        .eq('id', 'warehouses_individual_geometries')
-        .single();
-      
-      if (!error && data && data.value) {
-        localStorage.setItem('kho_individual_geometries', JSON.stringify(data.value));
-        return data.value;
-      }
-    } catch (e) {
-      console.warn('Không thể tải cấu hình từng kho từ Supabase, dùng cache:', e);
-    }
-  }
-
-  const cached = localStorage.getItem('kho_individual_geometries');
-  if (cached) {
-    try {
-      return JSON.parse(cached);
-    } catch (e) {}
-  }
-
-  return {};
-};
-
-export const saveWarehouseGeometryConfig = async (
-  warehouseId: string,
-  geom: WarehouseGeometryConfig
-): Promise<boolean> => {
-  const current = await getWarehousesGeometriesConfig();
-  const updated: AllWarehousesGeometries = {
-    ...current,
-    [warehouseId]: geom
-  };
-
-  localStorage.setItem('kho_individual_geometries', JSON.stringify(updated));
-
-  if (supabaseClient) {
-    try {
-      const { error } = await supabaseClient
-        .from('warehouse_settings')
-        .upsert({
-          id: 'warehouses_individual_geometries',
-          value: updated,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-      console.log(`⚡ Đã cập nhật tọa độ & kích thước riêng cho Kho ${warehouseId} lên Supabase!`);
-      return true;
-    } catch (e) {
-      console.warn(`Lưu tọa độ kho ${warehouseId} lên Supabase thất bại:`, e);
-      return false;
-    }
-  }
-
-  return true;
-};
-
-// --- Realtime Subscription Listener ---
-export const subscribeToRealtimeChanges = (onDataChanged: () => void) => {
-  if (!supabaseClient) return () => {};
-
-  try {
-    const channel = supabaseClient
-      .channel('public-warehouse-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_location_movements' }, () => {
-        onDataChanged();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_current_locations' }, () => {
-        onDataChanged();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouses' }, () => {
-        onDataChanged();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouse_settings' }, () => {
-        onDataChanged();
-      })
-      .subscribe();
-
-    return () => {
-      if (supabaseClient) {
-        supabaseClient.removeChannel(channel);
-      }
-    };
-  } catch (e) {
-    console.warn('Realtime subscription error:', e);
-    return () => {};
-  }
-};
-
-// Auto Background Network Sync
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
-    if (supabaseClient) {
-      syncOfflineQueue();
-    }
-  });
-
-  setInterval(() => {
-    if (navigator.onLine && supabaseClient) {
-      syncOfflineQueue();
-    }
-  }, 12000);
-}
-
-// --- Core DB Data APIs ---
-
-// 1. Get Warehouses
+// --- 1. Warehouse APIs ---
 export const getWarehouses = async (): Promise<Warehouse[]> => {
   if (supabaseClient) {
     try {
       const { data, error } = await supabaseClient
         .from('warehouses')
         .select('*')
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      return data || [];
+        .order('code', { ascending: true });
+      if (!error && data) {
+        await idbPutItems(STORES.WAREHOUSES, data);
+        return data;
+      }
     } catch (e) {
-      console.warn('Supabase fetch failed, falling back to local DB:', e);
+      console.warn('Supabase fetch warehouses failed, using IndexedDB:', e);
     }
   }
-  return JSON.parse(localStorage.getItem(LS_KEYS.WAREHOUSES) || '[]');
+  return idbGetAll<Warehouse>(STORES.WAREHOUSES);
 };
 
-// 2. Get Locations of Warehouse
-export const getWarehouseLocations = async (warehouseId: string): Promise<WarehouseLocation[]> => {
+export const createWarehouse = async (
+  code: string,
+  name: string,
+  widthM = 15.0,
+  lengthM = 30.0,
+  gpsLat: number | null = null,
+  gpsLng: number | null = null,
+  color = '#2563eb'
+): Promise<Warehouse> => {
+  const newWh: Warehouse = {
+    id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9),
+    code: code.trim().toUpperCase(),
+    name: name.trim(),
+    width_m: widthM,
+    length_m: lengthM,
+    gps_lat: gpsLat,
+    gps_lng: gpsLng,
+    color,
+    created_at: new Date().toISOString()
+  };
+
+  await idbPutItem(STORES.WAREHOUSES, newWh);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouses').upsert(newWh);
+    } catch (e) {
+      console.warn('Supabase create warehouse queued offline:', e);
+      await queueIndexedDbOutbox('create_warehouse', newWh);
+    }
+  }
+  return newWh;
+};
+
+// --- 2. Warehouse Zones APIs ---
+export const getWarehouseZones = async (warehouseId?: string): Promise<WarehouseZone[]> => {
+  if (supabaseClient) {
+    try {
+      let query = supabaseClient.from('warehouse_zones').select('*');
+      if (warehouseId) query = query.eq('warehouse_id', warehouseId);
+      const { data, error } = await query.order('code', { ascending: true });
+      if (!error && data) {
+        await idbPutItems(STORES.ZONES, data);
+        return data;
+      }
+    } catch (e) {
+      console.warn('Supabase fetch zones failed, using IndexedDB:', e);
+    }
+  }
+  const all = await idbGetAll<WarehouseZone>(STORES.ZONES);
+  return warehouseId ? all.filter(z => z.warehouse_id === warehouseId) : all;
+};
+
+export const createWarehouseZone = async (
+  warehouseId: string,
+  code: string,
+  name: string,
+  xM = 0.0,
+  yM = 0.0,
+  widthM = 5.0,
+  heightM = 10.0,
+  color = '#3b82f6'
+): Promise<WarehouseZone> => {
+  const newZone: WarehouseZone = {
+    id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9),
+    warehouse_id: warehouseId,
+    code: code.trim().toUpperCase(),
+    name: name.trim(),
+    x_m: xM,
+    y_m: yM,
+    width_m: widthM,
+    height_m: heightM,
+    color,
+    created_at: new Date().toISOString()
+  };
+
+  await idbPutItem(STORES.ZONES, newZone);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_zones').upsert(newZone);
+    } catch (e) {
+      await queueIndexedDbOutbox('create_zone', newZone);
+    }
+  }
+  return newZone;
+};
+
+// --- 3. Warehouse Locations APIs ---
+export const getWarehouseLocations = async (warehouseId?: string): Promise<WarehouseLocation[]> => {
+  if (supabaseClient) {
+    try {
+      let query = supabaseClient.from('warehouse_locations').select('*');
+      if (warehouseId) query = query.eq('warehouse_id', warehouseId);
+      const { data, error } = await query.order('code', { ascending: true });
+      if (!error && data) {
+        await idbPutItems(STORES.LOCATIONS, data);
+        return data;
+      }
+    } catch (e) {
+      console.warn('Supabase fetch locations failed, using IndexedDB:', e);
+    }
+  }
+  const all = await idbGetAll<WarehouseLocation>(STORES.LOCATIONS);
+  return warehouseId ? all.filter(l => l.warehouse_id === warehouseId) : all;
+};
+
+export const getWarehouseLocationById = async (locationId: string): Promise<WarehouseLocation | null> => {
+  const all = await getWarehouseLocations();
+  return all.find(l => l.id === locationId) || null;
+};
+
+export const createWarehouseLocation = async (
+  warehouseId: string,
+  code: string,
+  zoneId: string | null = null,
+  xM = 0.0,
+  yM = 0.0,
+  widthM = 1.5,
+  heightM = 1.5
+): Promise<WarehouseLocation> => {
+  const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9);
+  const cleanCode = code.trim().toUpperCase();
+  const newLoc: WarehouseLocation = {
+    id,
+    warehouse_id: warehouseId,
+    zone_id: zoneId,
+    code: cleanCode,
+    x_m: xM,
+    y_m: yM,
+    width_m: widthM,
+    height_m: heightM,
+    qr_payload: `WAREHOUSE_LOCATION:${id}`,
+    created_at: new Date().toISOString()
+  };
+
+  await idbPutItem(STORES.LOCATIONS, newLoc);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').upsert(newLoc);
+    } catch (e) {
+      await queueIndexedDbOutbox('create_location', newLoc);
+    }
+  }
+  return newLoc;
+};
+
+export const deleteWarehouseLocation = async (locationId: string): Promise<boolean> => {
+  await idbDeleteItem(STORES.LOCATIONS, locationId);
+
+  // Clear product binding if any
+  const prods = await idbGetAll<ProductCurrentLocation>(STORES.PRODUCT_LOCATIONS);
+  const cur = prods.find(p => p.location_id === locationId);
+  if (cur) {
+    cur.location_id = null;
+    cur.updated_at = new Date().toISOString();
+    await idbPutItem(STORES.PRODUCT_LOCATIONS, cur);
+  }
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').delete().eq('id', locationId);
+    } catch (e) {
+      console.warn('Supabase delete location failed:', e);
+    }
+  }
+  return true;
+};
+
+// --- 4. Products APIs ---
+export const getProducts = async (): Promise<Product[]> => {
   if (supabaseClient) {
     try {
       const { data, error } = await supabaseClient
-        .from('warehouse_locations')
+        .from('products')
         .select('*')
-        .eq('warehouse_id', warehouseId);
-      if (error) throw error;
-      return data || [];
+        .order('product_code', { ascending: true });
+      if (!error && data) {
+        await idbPutItems(STORES.PRODUCTS, data);
+        return data;
+      }
     } catch (e) {
-      console.warn('Supabase fetch failed, falling back to local DB:', e);
+      console.warn('Supabase fetch products failed, using IndexedDB:', e);
     }
   }
-  const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
-  return allLocs.filter(loc => loc.warehouse_id === warehouseId);
+  return idbGetAll<Product>(STORES.PRODUCTS);
 };
 
-// 3. Get Current Locations map
+export const getProductByCode = async (productCode: string): Promise<Product | null> => {
+  const cleanCode = productCode.trim().toLowerCase();
+  const allProds = await getProducts();
+  return allProds.find(p => p.product_code.toLowerCase() === cleanCode) || null;
+};
+
+export const getProductById = async (productId: string): Promise<Product | null> => {
+  const allProds = await getProducts();
+  return allProds.find(p => p.id === productId) || null;
+};
+
+// --- 5. Product Current Locations APIs ---
 export const getCurrentProductLocations = async (): Promise<ProductCurrentLocation[]> => {
   if (supabaseClient) {
     try {
       const { data, error } = await supabaseClient
         .from('product_current_locations')
         .select('*');
-      if (error) throw error;
-      return data || [];
+      if (!error && data) {
+        await idbPutItems(STORES.PRODUCT_LOCATIONS, data);
+        return data;
+      }
     } catch (e) {
-      console.warn('Supabase fetch failed, falling back to local DB:', e);
+      console.warn('Supabase fetch current locations failed, using IndexedDB:', e);
     }
   }
-  return JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
+  return idbGetAll<ProductCurrentLocation>(STORES.PRODUCT_LOCATIONS);
 };
 
-// 4. Get Current Location for specific product
-export const getProductCurrentLocation = async (productCode: string): Promise<ProductCurrentLocation | null> => {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('product_current_locations')
-        .select('*')
-        .eq('product_code', productCode)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    } catch (e) {
-      console.warn('Supabase fetch failed, falling back to local DB:', e);
-    }
-  }
-  const allCur: ProductCurrentLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
-  return allCur.find(cur => cur.product_code === productCode) || null;
+export const getProductCurrentLocation = async (productId: string): Promise<ProductCurrentLocation | null> => {
+  const all = await getCurrentProductLocations();
+  return all.find(c => c.product_id === productId) || null;
 };
 
-// 5. Start Product Movement (fromLocationId can be loaded automatically from current location)
-export const startProductMovement = async (
-  productCode: string,
-  fromLocationId: string | null,
-  ocrConfidence: number | null,
-  ocrImagePath: string | null = null
-): Promise<ProductLocationMovement> => {
-  const movement: ProductLocationMovement = {
-    id: Math.random().toString(36).substr(2, 9),
-    product_code: productCode,
-    from_location_id: fromLocationId,
-    to_location_id: null,
-    status: 'started',
-    ocr_confidence: ocrConfidence,
-    ocr_image_path: ocrImagePath,
-    gps_lat: null,
-    gps_lng: null,
-    user_name: 'User',
-    created_at: new Date().toISOString()
-  };
-
-  // 1. Write to LocalStorage (always keep it sync'ed for instant UX)
-  const allMovements: ProductLocationMovement[] = JSON.parse(localStorage.getItem(LS_KEYS.MOVEMENTS) || '[]');
-  allMovements.push(movement);
-  localStorage.setItem(LS_KEYS.MOVEMENTS, JSON.stringify(allMovements));
-
-  // 2. Try saving to Supabase or queue offline
+// --- 6. Movements History & Idempotent Movement Execution ---
+export const getMovementsHistory = async (): Promise<ProductLocationMovement[]> => {
   if (supabaseClient) {
     try {
       const { data, error } = await supabaseClient
         .from('product_location_movements')
-        .insert({
-          id: movement.id,
-          product_code: movement.product_code,
-          from_location_id: movement.from_location_id,
-          to_location_id: null,
-          status: 'started',
-          ocr_confidence: movement.ocr_confidence,
-          ocr_image_path: movement.ocr_image_path,
-          gps_lat: null,
-          gps_lng: null,
-          user_name: movement.user_name
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data) {
+        await idbPutItems(STORES.MOVEMENTS, data);
+        return data;
+      }
     } catch (e) {
-      console.warn('Supabase save failed, queuing offline:', e);
-      queueOfflineAction('start_move', movement);
+      console.warn('Supabase fetch movements failed, using IndexedDB:', e);
     }
   }
-
-  return movement;
+  const all = await idbGetAll<ProductLocationMovement>(STORES.MOVEMENTS);
+  return all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 };
 
-// 6. Complete Product Movement
-export const completeProductMovement = async (
-  productCode: string,
+export const executeProductMovement = async (
+  productId: string,
   toLocationId: string,
-  gpsLat: number | null,
-  gpsLng: number | null,
-  userName: string = 'User'
-): Promise<ProductLocationMovement> => {
-  const allMovements: ProductLocationMovement[] = JSON.parse(localStorage.getItem(LS_KEYS.MOVEMENTS) || '[]');
-  
-  // Find current started movement for this product
-  let activeMove = allMovements.find(m => m.product_code === productCode && m.status === 'started');
-  
-  const fromLocationId = activeMove ? activeMove.from_location_id : null;
-  const ocrConfidence = activeMove ? activeMove.ocr_confidence : null;
+  userName = 'Staff',
+  idempotencyKey?: string,
+  ocrConfidence: number | null = null,
+  gpsLat: number | null = null,
+  gpsLng: number | null = null
+): Promise<{ success: boolean; movementId: string }> => {
+  const effectiveKey = idempotencyKey || `${productId}_${toLocationId}_${Date.now()}`;
 
-  const finishedMove: ProductLocationMovement = {
-    id: activeMove ? activeMove.id : Math.random().toString(36).substr(2, 9),
-    product_code: productCode,
+  // 1. Check idempotency in local database
+  const allMoves = await idbGetAll<ProductLocationMovement>(STORES.MOVEMENTS);
+  const existing = allMoves.find(m => m.idempotency_key === effectiveKey);
+  if (existing) {
+    return { success: true, movementId: existing.id };
+  }
+
+  // 2. Get current location for 'from_location_id'
+  const curLoc = await getProductCurrentLocation(productId);
+  const fromLocationId = curLoc ? curLoc.location_id : null;
+
+  const movementId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9);
+  const newMovement: ProductLocationMovement = {
+    id: movementId,
+    product_id: productId,
     from_location_id: fromLocationId,
     to_location_id: toLocationId,
     status: 'completed',
+    idempotency_key: effectiveKey,
     ocr_confidence: ocrConfidence,
     gps_lat: gpsLat,
     gps_lng: gpsLng,
@@ -581,506 +727,124 @@ export const completeProductMovement = async (
     created_at: new Date().toISOString()
   };
 
-  // Update in local movements list
-  let updatedMovements: ProductLocationMovement[];
-  if (activeMove) {
-    updatedMovements = allMovements.map(m => m.id === activeMove.id ? finishedMove : m);
-  } else {
-    updatedMovements = [...allMovements, finishedMove];
-  }
-  localStorage.setItem(LS_KEYS.MOVEMENTS, JSON.stringify(updatedMovements));
+  // 3. Update local IndexedDB
+  await idbPutItem(STORES.MOVEMENTS, newMovement);
 
-  // Update current product location in LocalStorage
-  const allCur: ProductCurrentLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
-  const idx = allCur.findIndex(c => c.product_code === productCode);
-  const newLoc: ProductCurrentLocation = {
-    product_code: productCode,
+  const updatedCurLoc: ProductCurrentLocation = {
+    id: curLoc ? curLoc.id : (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substr(2, 9)),
+    product_id: productId,
     location_id: toLocationId,
     updated_at: new Date().toISOString(),
     updated_by: userName
   };
-  if (idx > -1) {
-    allCur[idx] = newLoc;
-  } else {
-    allCur.push(newLoc);
-  }
-  localStorage.setItem(LS_KEYS.PRODUCT_LOCATIONS, JSON.stringify(allCur));
+  await idbPutItem(STORES.PRODUCT_LOCATIONS, updatedCurLoc);
 
-  // Try updating Supabase or queue offline
+  // 4. Execute atomic RPC on Supabase if online
   if (supabaseClient) {
     try {
-      // Upsert product current location
-      const { error: curErr } = await supabaseClient
-        .from('product_current_locations')
-        .upsert({
-          product_code: productCode,
-          location_id: toLocationId,
-          updated_at: newLoc.updated_at,
-          updated_by: newLoc.updated_by
-        });
-      if (curErr) throw curErr;
-
-      // Upsert or insert movement record
-      const { data, error: moveErr } = await supabaseClient
-        .from('product_location_movements')
-        .upsert({
-          id: finishedMove.id,
-          product_code: finishedMove.product_code,
-          from_location_id: finishedMove.from_location_id,
-          to_location_id: finishedMove.to_location_id,
-          status: 'completed',
-          ocr_confidence: finishedMove.ocr_confidence,
-          gps_lat: finishedMove.gps_lat,
-          gps_lng: finishedMove.gps_lng,
-          user_name: finishedMove.user_name,
-          created_at: finishedMove.created_at
-        })
-        .select()
-        .single();
-      if (moveErr) throw moveErr;
-      return data;
-    } catch (e) {
-      console.warn('Supabase save failed, queuing offline:', e);
-      queueOfflineAction('complete_move', finishedMove);
-    }
-  }
-
-  return finishedMove;
-};
-
-// 7. Get History Logs
-export const getMovementsHistory = async (): Promise<ProductLocationMovement[]> => {
-  if (supabaseClient) {
-    try {
-      const { data, error } = await supabaseClient
-        .from('product_location_movements')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabaseClient.rpc('execute_product_movement', {
+        p_product_id: productId,
+        p_to_location_id: toLocationId,
+        p_user_name: userName,
+        p_idempotency_key: effectiveKey,
+        p_ocr_confidence: ocrConfidence,
+        p_gps_lat: gpsLat,
+        p_gps_lng: gpsLng
+      });
       if (error) throw error;
-      return data || [];
-    } catch (e) {
-      console.warn('Supabase fetch failed, falling back to local DB:', e);
-    }
-  }
-  const list: ProductLocationMovement[] = JSON.parse(localStorage.getItem(LS_KEYS.MOVEMENTS) || '[]');
-  return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-};
-
-// 8. Create Custom Warehouse (along with dynamic locations)
-export const createCustomWarehouse = async (
-  id: string,
-  name: string,
-  columns: number,
-  rows: number,
-  type: 'grid' | 'aisle'
-): Promise<Warehouse> => {
-  const warehouse: Warehouse = {
-    id,
-    name,
-    columns,
-    rows,
-    type,
-    created_at: new Date().toISOString()
-  };
-
-  // Generate dynamic locations
-  const generatedLocs: WarehouseLocation[] = [];
-  if (type === 'grid') {
-    // Label rows with letters (A, B, C, D...)
-    const getRowLetter = (index: number) => String.fromCharCode(65 + index); // 65 is 'A'
-    for (let r = 0; r < rows; r++) {
-      const rowLetter = getRowLetter(r);
-      for (let c = 0; c < columns; c++) {
-        const colString = String(c + 1).padStart(2, '0');
-        const code = `${rowLetter}${colString}`;
-        generatedLocs.push({
-          id: `${id}-${code}`,
-          warehouse_id: id,
-          code,
-          column_index: c,
-          row_index: r,
-          qr_payload: `WAREHOUSE_LOCATION:${id}-${code}`
-        });
-      }
-    }
-  } else {
-    // Aisles layout: K5-D1, K5-D2
-    for (let c = 0; c < columns; c++) {
-      const code = `D${c + 1}`;
-      generatedLocs.push({
-        id: `${id}-${code}`,
-        warehouse_id: id,
-        code,
-        column_index: c,
-        row_index: 0,
-        qr_payload: `WAREHOUSE_LOCATION:${id}-${code}`
+      return { success: true, movementId: data.movement_id || movementId };
+    } catch (err) {
+      console.warn('RPC execution failed, queued in offline outbox:', err);
+      await queueIndexedDbOutbox('execute_movement', {
+        productId,
+        toLocationId,
+        userName,
+        idempotencyKey: effectiveKey,
+        ocrConfidence,
+        gpsLat,
+        gpsLng
       });
     }
-  }
-
-  // Update LocalStorage
-  const allWhs: Warehouse[] = JSON.parse(localStorage.getItem(LS_KEYS.WAREHOUSES) || '[]');
-  allWhs.push(warehouse);
-  localStorage.setItem(LS_KEYS.WAREHOUSES, JSON.stringify(allWhs));
-
-  const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
-  const updatedLocs = [...allLocs, ...generatedLocs];
-  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(updatedLocs));
-
-  if (supabaseClient) {
-    try {
-      await supabaseClient.from('warehouses').upsert(warehouse);
-      await supabaseClient.from('warehouse_locations').upsert(generatedLocs);
-    } catch (e) {
-      console.warn('Supabase save failed, queuing offline:', e);
-      queueOfflineAction('create_warehouse', { warehouse, locations: generatedLocs });
-    }
-  }
-
-  return warehouse;
-};
-
-// 9. Update Warehouse Grid / Partitioning
-export const updateWarehousePartitionGrid = async (
-  warehouseId: string,
-  columns: number,
-  rows: number,
-  type: 'grid' | 'aisle' = 'grid',
-  regenerateSlots = false
-): Promise<boolean> => {
-  const allWhs: Warehouse[] = JSON.parse(localStorage.getItem(LS_KEYS.WAREHOUSES) || '[]');
-  const whIdx = allWhs.findIndex(w => w.id === warehouseId);
-  if (whIdx > -1) {
-    allWhs[whIdx].columns = columns;
-    allWhs[whIdx].rows = rows;
-    allWhs[whIdx].type = type;
-    localStorage.setItem(LS_KEYS.WAREHOUSES, JSON.stringify(allWhs));
-  }
-
-  if (supabaseClient) {
-    try {
-      await supabaseClient
-        .from('warehouses')
-        .update({ columns, rows, type })
-        .eq('id', warehouseId);
-    } catch (e) {
-      console.warn('Update warehouse grid in Supabase failed:', e);
-    }
-  }
-
-  if (regenerateSlots) {
-    let allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
-    const otherLocs = allLocs.filter(l => l.warehouse_id !== warehouseId);
-    const newLocs: WarehouseLocation[] = [];
-
-    if (type === 'grid') {
-      const getRowLetter = (index: number) => String.fromCharCode(65 + index);
-      for (let r = 0; r < rows; r++) {
-        const rowLetter = getRowLetter(r);
-        for (let c = 0; c < columns; c++) {
-          const colString = String(c + 1).padStart(2, '0');
-          const code = `${rowLetter}${colString}`;
-          newLocs.push({
-            id: `${warehouseId}-${code}`,
-            warehouse_id: warehouseId,
-            code,
-            column_index: c,
-            row_index: r,
-            qr_payload: `WAREHOUSE_LOCATION:${warehouseId}-${code}`
-          });
-        }
-      }
-    } else {
-      for (let c = 0; c < columns; c++) {
-        const code = `D${c + 1}`;
-        newLocs.push({
-          id: `${warehouseId}-${code}`,
-          warehouse_id: warehouseId,
-          code,
-          column_index: c,
-          row_index: 0,
-          qr_payload: `WAREHOUSE_LOCATION:${warehouseId}-${code}`
-        });
-      }
-    }
-
-    allLocs = [...otherLocs, ...newLocs];
-    localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(allLocs));
-
-    if (supabaseClient) {
-      try {
-        await supabaseClient.from('warehouse_locations').delete().eq('warehouse_id', warehouseId);
-        await supabaseClient.from('warehouse_locations').upsert(newLocs);
-      } catch (e) {
-        console.warn('Regenerate slots in Supabase failed:', e);
-      }
-    }
-  }
-
-  return true;
-};
-
-// 10. Add Single Custom Slot to Warehouse
-export const addWarehouseSlot = async (
-  warehouseId: string,
-  code: string,
-  rowIndex = 0,
-  columnIndex = 0
-): Promise<WarehouseLocation> => {
-  const cleanCode = code.trim().toUpperCase();
-  const id = `${warehouseId}-${cleanCode}`;
-  const newLocation: WarehouseLocation = {
-    id,
-    warehouse_id: warehouseId,
-    code: cleanCode,
-    row_index: rowIndex,
-    column_index: columnIndex,
-    qr_payload: `WAREHOUSE_LOCATION:${id}`,
-    created_at: new Date().toISOString()
-  };
-
-  const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
-  const existingIdx = allLocs.findIndex(l => l.id === id);
-  if (existingIdx > -1) {
-    allLocs[existingIdx] = newLocation;
   } else {
-    allLocs.push(newLocation);
+    await queueIndexedDbOutbox('execute_movement', {
+      productId,
+      toLocationId,
+      userName,
+      idempotencyKey: effectiveKey,
+      ocrConfidence,
+      gpsLat,
+      gpsLng
+    });
   }
-  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(allLocs));
 
-  if (supabaseClient) {
-    try {
-      await supabaseClient.from('warehouse_locations').upsert(newLocation);
-    } catch (e) {
-      console.warn('Add slot to Supabase failed:', e);
-    }
-  }
-
-  return newLocation;
+  return { success: true, movementId };
 };
 
-// 11. Delete Single Slot
-export const deleteWarehouseSlot = async (locationId: string): Promise<boolean> => {
-  let allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
-  allLocs = allLocs.filter(l => l.id !== locationId);
-  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(allLocs));
-
-  const allCur: ProductCurrentLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
-  const prodIdx = allCur.findIndex(p => p.location_id === locationId);
-  if (prodIdx > -1) {
-    allCur[prodIdx].location_id = null;
-    allCur[prodIdx].updated_at = new Date().toISOString();
-    localStorage.setItem(LS_KEYS.PRODUCT_LOCATIONS, JSON.stringify(allCur));
-  }
-
-  if (supabaseClient) {
-    try {
-      await supabaseClient.from('warehouse_locations').delete().eq('id', locationId);
-      if (prodIdx > -1) {
-        await supabaseClient
-          .from('product_current_locations')
-          .update({ location_id: null, updated_at: new Date().toISOString() })
-          .eq('product_code', allCur[prodIdx].product_code);
-      }
-    } catch (e) {
-      console.warn('Delete slot in Supabase failed:', e);
-    }
-  }
-
-  return true;
-};
-
-// 12. Transfer / Move Entire Slot (and stored product) to Another Warehouse
-export const transferSlotToWarehouse = async (
-  sourceLocationId: string,
-  targetWarehouseId: string
-): Promise<{ success: boolean; newLocationId: string }> => {
-  const allLocs: WarehouseLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.LOCATIONS) || '[]');
-  const srcLoc = allLocs.find(l => l.id === sourceLocationId);
-
-  if (!srcLoc) {
-    throw new Error(`Không tìm thấy vị trí ${sourceLocationId}`);
-  }
-
-  const newLocationId = `${targetWarehouseId}-${srcLoc.code}`;
-  const newLocation: WarehouseLocation = {
-    ...srcLoc,
-    id: newLocationId,
-    warehouse_id: targetWarehouseId,
-    qr_payload: `WAREHOUSE_LOCATION:${newLocationId}`,
-    created_at: new Date().toISOString()
-  };
-
-  const updatedLocs = allLocs.filter(l => l.id !== sourceLocationId);
-  updatedLocs.push(newLocation);
-  localStorage.setItem(LS_KEYS.LOCATIONS, JSON.stringify(updatedLocs));
-
-  const allCur: ProductCurrentLocation[] = JSON.parse(localStorage.getItem(LS_KEYS.PRODUCT_LOCATIONS) || '[]');
-  const prod = allCur.find(p => p.location_id === sourceLocationId);
-  if (prod) {
-    prod.location_id = newLocationId;
-    prod.updated_at = new Date().toISOString();
-    localStorage.setItem(LS_KEYS.PRODUCT_LOCATIONS, JSON.stringify(allCur));
-
-    const movement: ProductLocationMovement = {
-      id: Math.random().toString(36).substr(2, 9),
-      product_code: prod.product_code,
-      from_location_id: sourceLocationId,
-      to_location_id: newLocationId,
-      status: 'completed',
-      ocr_confidence: 1,
-      gps_lat: null,
-      gps_lng: null,
-      user_name: 'Transfer Slot Admin',
-      created_at: new Date().toISOString()
-    };
-    const moves: ProductLocationMovement[] = JSON.parse(localStorage.getItem(LS_KEYS.MOVEMENTS) || '[]');
-    moves.unshift(movement);
-    localStorage.setItem(LS_KEYS.MOVEMENTS, JSON.stringify(moves));
-
-    if (supabaseClient) {
-      try {
-        await supabaseClient.from('product_location_movements').insert(movement);
-      } catch (e) {}
-    }
-  }
-
-  if (supabaseClient) {
-    try {
-      await supabaseClient.from('warehouse_locations').delete().eq('id', sourceLocationId);
-      await supabaseClient.from('warehouse_locations').upsert(newLocation);
-
-      if (prod) {
-        await supabaseClient
-          .from('product_current_locations')
-          .upsert({
-            product_code: prod.product_code,
-            location_id: newLocationId,
-            updated_at: prod.updated_at
-          });
-      }
-    } catch (e) {
-      console.warn('Transfer slot in Supabase failed:', e);
-    }
-  }
-
-  return { success: true, newLocationId };
-};
-
-// --- Offline Queue Handling ---
-
-export const getSyncOutbox = (): SyncAction[] => {
-  return JSON.parse(localStorage.getItem(LS_KEYS.SYNC_OUTBOX) || '[]');
-};
-
-const queueOfflineAction = (actionType: SyncAction['action_type'], payload: any) => {
-  const outbox: SyncAction[] = getSyncOutbox();
-  const action: SyncAction = {
-    id: Math.random().toString(36).substr(2, 9),
-    action_type: actionType,
-    payload,
-    status: 'pending',
-    created_at: new Date().toISOString()
-  };
-  outbox.push(action);
-  localStorage.setItem(LS_KEYS.SYNC_OUTBOX, JSON.stringify(outbox));
+// --- 7. Offline Sync Engine ---
+export const getSyncOutbox = async (): Promise<SyncAction[]> => {
+  return getIndexedDbOutbox();
 };
 
 export const syncOfflineQueue = async (): Promise<{ success: boolean; count: number; errors: string[] }> => {
   if (!supabaseClient) {
-    return { success: false, count: 0, errors: ['Supabase client not initialized'] };
+    return { success: false, count: 0, errors: ['Supabase client is not connected'] };
   }
 
-  const outbox: SyncAction[] = getSyncOutbox();
+  const outbox = await getIndexedDbOutbox();
   if (outbox.length === 0) {
     return { success: true, count: 0, errors: [] };
   }
 
   let successCount = 0;
   const errors: string[] = [];
-  const updatedOutbox: SyncAction[] = [];
 
-  for (const action of outbox) {
+  for (const item of outbox) {
     try {
-      if (action.action_type === 'start_move') {
-        const move = action.payload;
-        const { error } = await supabaseClient
-          .from('product_location_movements')
-          .insert({
-            id: move.id,
-            product_code: move.product_code,
-            from_location_id: move.from_location_id,
-            to_location_id: null,
-            status: 'started',
-            ocr_confidence: move.ocr_confidence,
-            ocr_image_path: move.ocr_image_path,
-            gps_lat: null,
-            gps_lng: null,
-            user_name: move.user_name
-          });
-        if (error) throw error;
-      } 
-      else if (action.action_type === 'complete_move') {
-        const move = action.payload;
-        // Upsert current location
-        const { error: curErr } = await supabaseClient
-          .from('product_current_locations')
-          .upsert({
-            product_code: move.product_code,
-            location_id: move.to_location_id,
-            updated_at: move.created_at,
-            updated_by: move.user_name
-          });
-        if (curErr) throw curErr;
-
-        // Upsert movement record
-        const { error: moveErr } = await supabaseClient
-          .from('product_location_movements')
-          .upsert({
-            id: move.id,
-            product_code: move.product_code,
-            from_location_id: move.from_location_id,
-            to_location_id: move.to_location_id,
-            status: 'completed',
-            ocr_confidence: move.ocr_confidence,
-            gps_lat: move.gps_lat,
-            gps_lng: move.gps_lng,
-            user_name: move.user_name,
-            created_at: move.created_at
-          });
-        if (moveErr) throw moveErr;
+      if (item.action_type === 'execute_movement') {
+        const { productId, toLocationId, userName, idempotencyKey, ocrConfidence, gpsLat, gpsLng } = item.payload;
+        await supabaseClient.rpc('execute_product_movement', {
+          p_product_id: productId,
+          p_to_location_id: toLocationId,
+          p_user_name: userName,
+          p_idempotency_key: idempotencyKey,
+          p_ocr_confidence: ocrConfidence,
+          p_gps_lat: gpsLat,
+          p_gps_lng: gpsLng
+        });
+      } else if (item.action_type === 'create_warehouse') {
+        await supabaseClient.from('warehouses').upsert(item.payload);
+      } else if (item.action_type === 'create_zone') {
+        await supabaseClient.from('warehouse_zones').upsert(item.payload);
+      } else if (item.action_type === 'create_location') {
+        await supabaseClient.from('warehouse_locations').upsert(item.payload);
       }
-      else if (action.action_type === 'create_warehouse') {
-        const { warehouse, locations } = action.payload;
-        // Insert warehouse
-        const { error: wErr } = await supabaseClient
-          .from('warehouses')
-          .insert(warehouse);
-        if (wErr) throw wErr;
-
-        // Insert locations
-        const { error: lErr } = await supabaseClient
-          .from('warehouse_locations')
-          .insert(locations);
-        if (lErr) throw lErr;
-      }
-
+      await markIndexedDbOutboxDone(item.id);
       successCount++;
     } catch (err: any) {
-      console.error(`Sync error for action ${action.id}:`, err);
-      errors.push(err.message || 'Unknown network error');
-      action.status = 'failed';
-      action.error_message = err.message || 'Unknown network error';
-      updatedOutbox.push(action);
+      errors.push(`Action ${item.id} error: ${err.message}`);
     }
   }
 
-  // Save remaining failed actions back, remove successful ones
-  localStorage.setItem(LS_KEYS.SYNC_OUTBOX, JSON.stringify(updatedOutbox));
+  return { success: errors.length === 0, count: successCount, errors };
+};
 
-  return {
-    success: errors.length === 0,
-    count: successCount,
-    errors
+// Realtime Changes Listener
+export const subscribeToRealtimeChanges = (callback: () => void) => {
+  if (!supabaseClient) return () => {};
+
+  const channel = supabaseClient
+    .channel('warehouse_realtime_channel')
+    .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+      callback();
+    })
+    .subscribe();
+
+  return () => {
+    supabaseClient?.removeChannel(channel);
   };
+};
+
+export const resetLocalDatabase = async (): Promise<void> => {
+  await clearIndexedDbData();
+  await initializeProductionSeed();
 };

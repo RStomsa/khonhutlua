@@ -1,30 +1,32 @@
 import React, { useState } from 'react';
 import {
-  Grid,
   Plus,
   Trash2,
   ArrowRightLeft,
   Check,
-  RefreshCw,
   LayoutGrid
 } from 'lucide-react';
 import type {
   Warehouse,
+  WarehouseZone,
   WarehouseLocation,
+  Product,
   ProductCurrentLocation
 } from '../lib/database';
 import {
-  updateWarehousePartitionGrid,
-  addWarehouseSlot,
-  deleteWarehouseSlot,
-  transferSlotToWarehouse
+  createWarehouseLocation,
+  deleteWarehouseLocation,
+  createWarehouseZone,
+  executeProductMovement
 } from '../lib/database';
 
 interface WarehousePartitionManagerProps {
   isOpen: boolean;
   onClose: () => void;
   warehouses: Warehouse[];
+  zones?: WarehouseZone[];
   allLocations: WarehouseLocation[];
+  products?: Product[];
   currentLocations: ProductCurrentLocation[];
   initialWarehouseId?: string;
   onDataChanged: () => void;
@@ -34,24 +36,26 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
   isOpen,
   onClose,
   warehouses,
+  zones = [],
   allLocations,
+  products = [],
   currentLocations,
   initialWarehouseId,
   onDataChanged
 }) => {
   const [selectedWhId, setSelectedWhId] = useState<string>(
-    initialWarehouseId || (warehouses.length > 0 ? warehouses[0].id : 'K1')
+    initialWarehouseId || (warehouses.length > 0 ? warehouses[0].id : '')
   );
 
   const activeWh = warehouses.find(w => w.id === selectedWhId);
 
-  // Partition Grid form states
-  const [gridRows, setGridRows] = useState<number>(activeWh?.rows || 4);
-  const [gridCols, setGridCols] = useState<number>(activeWh?.columns || 3);
-  const [gridType, setGridType] = useState<'grid' | 'aisle'>(activeWh?.type || 'grid');
-
   // New slot form state
   const [newSlotCode, setNewSlotCode] = useState<string>('');
+  const [newSlotZoneId, setNewSlotZoneId] = useState<string>('');
+
+  // New zone form state
+  const [newZoneCode, setNewZoneCode] = useState<string>('');
+  const [newZoneName, setNewZoneName] = useState<string>('');
 
   // Target warehouse state for individual transfer
   const [transferTargets, setTransferTargets] = useState<Record<string, string>>({});
@@ -60,11 +64,16 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
 
   if (!isOpen) return null;
 
+  const currentWhZones = zones.filter(z => z.warehouse_id === selectedWhId);
   const currentWhLocations = allLocations.filter(l => l.warehouse_id === selectedWhId);
 
-  const productMap = new Map<string, string>();
-  currentLocations.forEach(p => {
-    if (p.location_id) productMap.set(p.location_id, p.product_code);
+  // Product by Location Map
+  const productByLocMap = new Map<string, Product>();
+  currentLocations.forEach(cur => {
+    if (cur.location_id) {
+      const prod = products.find(p => p.id === cur.product_id);
+      if (prod) productByLocMap.set(cur.location_id, prod);
+    }
   });
 
   const showMsg = (text: string, type: 'success' | 'error' = 'success') => {
@@ -72,48 +81,46 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
     setTimeout(() => setActionMessage(null), 3500);
   };
 
-  // Handle Partition Re-generate
-  const handleApplyPartition = async (regenerate: boolean) => {
-    if (!activeWh) return;
-    if (regenerate && !window.confirm(`Bạn có chắc muốn tạo lại toàn bộ ${gridRows * gridCols} ô kệ cho Kho ${activeWh.name}? Các ô cũ sẽ được làm mới.`)) {
-      return;
-    }
+  // Handle Add Single Slot
+  const handleAddNewSlot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSlotCode.trim() || !selectedWhId) return;
 
     setIsProcessing(true);
     try {
-      await updateWarehousePartitionGrid(
-        activeWh.id,
-        gridCols,
-        gridRows,
-        gridType,
-        regenerate
+      await createWarehouseLocation(
+        selectedWhId,
+        newSlotCode.trim(),
+        newSlotZoneId || null
       );
+      setNewSlotCode('');
       onDataChanged();
-      showMsg(
-        regenerate
-          ? `Đã tạo lại lưới ${gridRows}x${gridCols} (${gridRows * gridCols} ô) cho Kho ${activeWh.name}!`
-          : `Đã cập nhật kích thước lưới ${gridRows}x${gridCols}!`
-      );
+      showMsg(`Đã tạo vị trí ô mới [${newSlotCode.trim().toUpperCase()}] thành công!`);
     } catch (e: any) {
-      showMsg(e.message || 'Lỗi khi cập nhật cấu trúc ô', 'error');
+      showMsg(e.message || 'Lỗi khi thêm vị trí', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Handle Add Single Slot
-  const handleAddNewSlot = async (e: React.FormEvent) => {
+  // Handle Add Zone
+  const handleAddNewZone = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSlotCode.trim()) return;
+    if (!newZoneCode.trim() || !newZoneName.trim() || !selectedWhId) return;
 
     setIsProcessing(true);
     try {
-      await addWarehouseSlot(selectedWhId, newSlotCode.trim());
-      setNewSlotCode('');
+      await createWarehouseZone(
+        selectedWhId,
+        newZoneCode.trim(),
+        newZoneName.trim()
+      );
+      setNewZoneCode('');
+      setNewZoneName('');
       onDataChanged();
-      showMsg(`Đã thêm ô mới [${selectedWhId}-${newSlotCode.trim().toUpperCase()}]!`);
+      showMsg(`Đã tạo phân khu mới [${newZoneName.trim()}]!`);
     } catch (e: any) {
-      showMsg(e.message || 'Lỗi khi thêm ô', 'error');
+      showMsg(e.message || 'Lỗi khi thêm phân khu', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -121,9 +128,9 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
 
   // Handle Delete Slot
   const handleDeleteSlot = async (locId: string, code: string) => {
-    const hasProduct = productMap.has(locId);
-    if (hasProduct) {
-      if (!window.confirm(`Ô ${code} đang có hàng [${productMap.get(locId)}]. Bạn có chắc muốn xóa ô này không?`)) {
+    const product = productByLocMap.get(locId);
+    if (product) {
+      if (!window.confirm(`Ô ${code} đang chứa sản phẩm [${product.product_code}]. Bạn có chắc muốn xóa ô này không?`)) {
         return;
       }
     } else {
@@ -132,19 +139,19 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
 
     setIsProcessing(true);
     try {
-      await deleteWarehouseSlot(locId);
+      await deleteWarehouseLocation(locId);
       onDataChanged();
       showMsg(`Đã xóa ô ${code}!`);
     } catch (e: any) {
-      showMsg(e.message || 'Lỗi khi xóa ô', 'error');
+      showMsg(e.message || 'Lỗi khi xóa vị trí', 'error');
     } finally {
       setIsProcessing(false);
     }
   };
 
   // Handle Transfer Slot to Another Warehouse
-  const handleTransferSlot = async (sourceLocId: string) => {
-    const targetWhId = transferTargets[sourceLocId];
+  const handleTransferSlot = async (sourceLoc: WarehouseLocation) => {
+    const targetWhId = transferTargets[sourceLoc.id];
     if (!targetWhId || targetWhId === selectedWhId) {
       alert('Vui lòng chọn kho đích khác kho hiện tại.');
       return;
@@ -152,11 +159,27 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
 
     setIsProcessing(true);
     try {
-      const res = await transferSlotToWarehouse(sourceLocId, targetWhId);
+      // 1. Create matching location in target warehouse
+      const newLoc = await createWarehouseLocation(targetWhId, sourceLoc.code);
+
+      // 2. If a product was stored, execute movement to the new location
+      const product = productByLocMap.get(sourceLoc.id);
+      if (product) {
+        await executeProductMovement(
+          product.id,
+          newLoc.id,
+          'Transfer Admin',
+          `TRANSFER_${product.id}_${newLoc.id}_${Date.now()}`
+        );
+      }
+
+      // 3. Delete old location
+      await deleteWarehouseLocation(sourceLoc.id);
+
       onDataChanged();
-      showMsg(`Đã bốc nguyên ô sang Kho ${targetWhId} (Mã mới: ${res.newLocationId})!`);
+      showMsg(`Đã chuyển toàn bộ ô ${sourceLoc.code} sang kho đích thành công!`);
     } catch (e: any) {
-      showMsg(e.message || 'Lỗi khi chuyển kho', 'error');
+      showMsg(e.message || 'Lỗi khi chuyển ô', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -172,8 +195,8 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
               <LayoutGrid size={22} className="text-primary" />
             </div>
             <div>
-              <h3 className="header-title">Phân Chia Lại Ô & Bốc Ô Sang Kho Khác</h3>
-              <p className="header-sub">Tự do chia hàng/cột, thêm ô kệ mới hoặc chuyển nguyên ô kèm hàng tồn sang kho khác</p>
+              <h3 className="header-title">Quản lý Cấu trúc Phân khu (Zones) & Ô Vị trí (Locations)</h3>
+              <p className="header-sub">Thiết lập kiến trúc 3 cấp (Kho &rarr; Phân khu &rarr; Ô kệ) và chuyển dời ô lưu trữ</p>
             </div>
           </div>
           <button className="modal-close-btn" onClick={onClose}>&times;</button>
@@ -195,14 +218,9 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
               <button
                 key={w.id}
                 className={`wh-tab-pill ${selectedWhId === w.id ? 'active' : ''}`}
-                onClick={() => {
-                  setSelectedWhId(w.id);
-                  setGridRows(w.rows);
-                  setGridCols(w.columns);
-                  setGridType(w.type);
-                }}
+                onClick={() => setSelectedWhId(w.id)}
               >
-                <strong>{w.name}</strong>
+                <strong>{w.code} - {w.name}</strong>
                 <span className="pill-count">{locCount} ô</span>
               </button>
             );
@@ -210,123 +228,105 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
         </div>
 
         <div className="partition-body">
-          {/* Top Partition & Grid Controls */}
-          <div className="partition-control-panel glass-card">
-            <div className="panel-title-row">
-              <Grid size={18} className="text-primary" />
-              <h4>Cấu trúc ô của {activeWh?.name}</h4>
-            </div>
-
-            <div className="partition-form-grid">
-              <div className="form-group-item">
-                <label>Loại bố trí:</label>
+          {/* Top Control Panels */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '14px' }}>
+            {/* Create Location Panel */}
+            <div className="partition-control-panel glass-card">
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px' }}>➕ Thêm Ô Vị Trí Mới</h4>
+              <form onSubmit={handleAddNewSlot} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Mã ô (VD: A04, B05, VIP1)..."
+                  value={newSlotCode}
+                  onChange={(e) => setNewSlotCode(e.target.value)}
+                  className="form-input"
+                  required
+                />
                 <select
-                  value={gridType}
-                  onChange={(e) => setGridType(e.target.value as 'grid' | 'aisle')}
+                  value={newSlotZoneId}
+                  onChange={(e) => setNewSlotZoneId(e.target.value)}
                   className="form-input"
                 >
-                  <option value="grid">Lưới Ô (Hàng x Cột: A01, A02...)</option>
-                  <option value="aisle">Lối đi Aisle (Dãy D1, D2...)</option>
+                  <option value="">Thuộc Phân khu (Tùy chọn)...</option>
+                  {currentWhZones.map(z => (
+                    <option key={z.id} value={z.id}>
+                      {z.name} ({z.code})
+                    </option>
+                  ))}
                 </select>
-              </div>
-
-              <div className="form-group-item">
-                <label>Số Hàng (Rows):</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={gridRows}
-                  onChange={(e) => setGridRows(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group-item">
-                <label>Số Cột (Columns):</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={gridCols}
-                  onChange={(e) => setGridCols(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group-item btn-group-actions">
                 <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', padding: '8px 14px' }}
-                  disabled={isProcessing}
-                  onClick={() => handleApplyPartition(false)}
-                  title="Cập nhật cấu hình hàng x cột"
-                >
-                  Lưu cấu hình
-                </button>
-
-                <button
-                  type="button"
+                  type="submit"
                   className="btn btn-primary"
-                  style={{ width: 'auto', padding: '8px 16px' }}
-                  disabled={isProcessing}
-                  onClick={() => handleApplyPartition(true)}
-                  title="Tự động sinh lại tất cả các ô theo số hàng x cột mới"
+                  style={{ width: 'auto', alignSelf: 'flex-start' }}
+                  disabled={isProcessing || !newSlotCode.trim()}
                 >
-                  <RefreshCw size={14} className={isProcessing ? 'animate-spin' : ''} />
-                  Tạo lại lưới {gridRows}x{gridCols} ({gridRows * gridCols} ô)
+                  <Plus size={14} /> Thêm Ô
                 </button>
-              </div>
+              </form>
             </div>
 
-            {/* Add Custom Slot */}
-            <form onSubmit={handleAddNewSlot} className="add-slot-form">
-              <span className="add-slot-label">Thêm 1 ô lẻ:</span>
-              <input
-                type="text"
-                placeholder="Mã ô (VD: A04, E01, VIP1)..."
-                value={newSlotCode}
-                onChange={(e) => setNewSlotCode(e.target.value)}
-                className="form-input slot-code-input"
-              />
-              <button
-                type="submit"
-                className="btn btn-success"
-                style={{ width: 'auto', padding: '8px 16px' }}
-                disabled={isProcessing || !newSlotCode.trim()}
-              >
-                <Plus size={15} /> Thêm ô
-              </button>
-            </form>
+            {/* Create Zone Panel */}
+            <div className="partition-control-panel glass-card">
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '10px' }}>🏷️ Tạo Phân Khu Mới (Zone)</h4>
+              <form onSubmit={handleAddNewZone} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Mã Khu (VD: KHU_120)"
+                    value={newZoneCode}
+                    onChange={(e) => setNewZoneCode(e.target.value)}
+                    className="form-input"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Tên Khu (VD: Khu 120cm)"
+                    value={newZoneName}
+                    onChange={(e) => setNewZoneName(e.target.value)}
+                    className="form-input"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="btn btn-secondary"
+                  style={{ width: 'auto', alignSelf: 'flex-start' }}
+                  disabled={isProcessing || !newZoneCode.trim() || !newZoneName.trim()}
+                >
+                  <Plus size={14} /> Tạo Phân Khu
+                </button>
+              </form>
+            </div>
           </div>
 
           {/* Slot Cards List / Matrix */}
           <div className="slots-container-card glass-card">
             <div className="slots-header-row">
-              <h4>Danh sách {currentWhLocations.length} ô kệ trong {activeWh?.name}</h4>
+              <h4>Danh sách {currentWhLocations.length} ô vị trí trong {activeWh?.name}</h4>
               <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                💡 Chọn kho đích để bốc nguyên một ô sang kho khác:
+                💡 Chuyển toàn bộ ô kèm sản phẩm lưu trữ sang kho khác:
               </span>
             </div>
 
             {currentWhLocations.length === 0 ? (
-              <div className="empty-slots-box text-center">
-                <p className="text-muted">Kho này hiện chưa có ô nào. Hãy bấm "Tạo lại lưới" hoặc "Thêm ô" ở trên.</p>
+              <div className="empty-slots-box text-center" style={{ padding: '30px 0' }}>
+                <p className="text-muted">Kho này chưa có ô vị trí nào. Hãy thêm vị trí ở trên.</p>
               </div>
             ) : (
               <div className="slots-grid-cards">
                 {currentWhLocations.map(loc => {
-                  const product = productMap.get(loc.id);
+                  const product = productByLocMap.get(loc.id);
                   const hasProduct = Boolean(product);
                   const selectedTargetWh = transferTargets[loc.id] || '';
+                  const zone = zones.find(z => z.id === loc.zone_id);
 
                   return (
                     <div key={loc.id} className={`slot-item-card ${hasProduct ? 'has-product' : 'is-empty'}`}>
                       <div className="slot-card-top">
                         <div className="slot-code-badge">
                           <strong>{loc.code}</strong>
-                          <span className="slot-full-id">{loc.id}</span>
+                          {zone && <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 600, display: 'block' }}>{zone.name}</span>}
+                          <span className="slot-full-id">{loc.id.substring(0, 18)}...</span>
                         </div>
                         <button
                           className="btn-del-slot"
@@ -338,13 +338,13 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                       </div>
 
                       <div className="slot-card-mid">
-                        <span className="slot-prod-label">Hàng hóa:</span>
-                        {hasProduct ? (
+                        <span className="slot-prod-label">Sản phẩm lưu trữ:</span>
+                        {hasProduct && product ? (
                           <div className="slot-product-pill">
-                            📦 <strong>{product}</strong>
+                            📦 <strong>{product.product_code}</strong> ({product.length_value}{product.length_unit})
                           </div>
                         ) : (
-                          <span className="slot-empty-text">Trống</span>
+                          <span className="slot-empty-text">Vị trí trống</span>
                         )}
                       </div>
 
@@ -355,12 +355,12 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                           onChange={(e) => setTransferTargets(prev => ({ ...prev, [loc.id]: e.target.value }))}
                           className="transfer-select"
                         >
-                          <option value="">Bốc sang kho...</option>
+                          <option value="">Chuyển sang kho...</option>
                           {warehouses
                             .filter(w => w.id !== selectedWhId)
                             .map(w => (
                               <option key={w.id} value={w.id}>
-                                Sang {w.name}
+                                Sang {w.code} ({w.name})
                               </option>
                             ))}
                         </select>
@@ -369,7 +369,7 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                           type="button"
                           className="btn-transfer-action"
                           disabled={!selectedTargetWh || isProcessing}
-                          onClick={() => handleTransferSlot(loc.id)}
+                          onClick={() => handleTransferSlot(loc)}
                           title="Chuyển toàn bộ ô này sang kho được chọn"
                         >
                           <ArrowRightLeft size={14} /> Chuyển
