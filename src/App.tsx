@@ -22,8 +22,7 @@ import {
   Grid,
   PackagePlus,
   Box,
-  Download,
-  Smartphone
+  Download
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -533,67 +532,73 @@ function App() {
   return (
     <div className="page">
       {/* Top Main Navbar */}
-      <header className="navbar navbar-expand-md d-print-none navbar-light bg-white border-bottom shadow-sm sticky-top">
+      <header className="navbar navbar-expand-md d-print-none navbar-light bg-white border-bottom shadow-sm sticky-top py-2">
         <div className="container-xl d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center gap-3">
-            <a href="#" className="navbar-brand-logo" onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }}>
-              <div className="navbar-brand-icon">
-                <Sparkles size={18} />
-              </div>
-              <div className="d-flex flex-column">
-                <span style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0054a6', lineHeight: 1.1 }}>KHO NHỰT LÚA</span>
-                <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 500 }}>Hệ thống Quản lý & Định vị Vệ tinh</span>
-              </div>
-            </a>
+          {/* Left Logo */}
+          <a href="#" className="navbar-brand-logo d-flex align-items-center gap-2 text-decoration-none" onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }}>
+            <div className="navbar-brand-icon" style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#0054a6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={16} />
+            </div>
+            <div className="d-flex flex-column">
+              <span style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0054a6', lineHeight: 1.1 }}>KHO NHỰT LÚA</span>
+              <span className="d-none d-sm-block" style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 500 }}>Quản lý Kho & Bản đồ Vệ tinh</span>
+            </div>
+          </a>
 
+          {/* Center Database Status (Desktop) */}
+          <div className="d-none d-md-flex align-items-center gap-2">
             {isDbOnline ? (
-              <span className="badge bg-success-lt text-success d-none d-sm-inline-flex" style={{ padding: '5px 10px' }}>
-                <Database size={13} className="me-1" /> Supabase Realtime Online
+              <span className="badge bg-success-lt text-success" style={{ padding: '4px 8px' }}>
+                <Database size={12} className="me-1" /> Supabase Realtime Online
               </span>
             ) : (
-              <span className="badge bg-warning-lt text-warning d-none d-sm-inline-flex" style={{ padding: '5px 10px' }}>
-                <Database size={13} className="me-1" /> IndexedDB Offline
+              <span className="badge bg-warning-lt text-warning" style={{ padding: '4px 8px' }}>
+                <Database size={12} className="me-1" /> IndexedDB Offline
               </span>
             )}
           </div>
 
-          <div className="d-flex align-items-center gap-2">
-            {!isPwaInstalled ? (
+          {/* Right Action Icons */}
+          <div className="d-flex align-items-center gap-1 gap-sm-2">
+            {/* Mobile DB Status Dot */}
+            <span
+              className="d-inline-flex d-md-none me-1"
+              style={{ width: '8px', height: '8px', borderRadius: '50%', background: isDbOnline ? '#2fb344' : '#f76707' }}
+              title={isDbOnline ? 'Supabase Online' : 'IndexedDB Offline'}
+            />
+
+            {!isPwaInstalled && (
               <button
-                className="btn btn-outline-primary btn-sm"
+                className="btn btn-outline-primary btn-sm px-2"
                 onClick={handleInstallPwa}
-                title="Cài đặt ứng dụng PWA vào điện thoại / máy tính"
+                title="Cài App PWA vào điện thoại"
               >
-                <Download size={14} className="me-1 text-primary" /> <span className="d-none d-sm-inline">Cài App PWA</span>
+                <Download size={14} className="me-sm-1 text-primary" /> <span className="d-none d-sm-inline">Cài App</span>
               </button>
-            ) : (
-              <span className="badge bg-primary-lt d-none d-sm-inline-flex" style={{ padding: '5px 8px' }}>
-                <Smartphone size={13} className="me-1 text-primary" /> App PWA
-              </span>
             )}
 
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-primary btn-sm px-2"
               onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}
-              title="Nhập sản phẩm mới hoặc dán danh sách hàng loạt vào kho"
+              title="Nhập sản phẩm mới hoặc dán danh sách hàng loạt"
             >
-              <PackagePlus size={15} /> <span className="d-none d-sm-inline">Nhập Hàng / SP Mới</span>
+              <PackagePlus size={14} className="me-sm-1" /> <span className="d-none d-sm-inline">Nhập Hàng</span>
             </button>
 
             <button
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-outline-secondary btn-sm px-2 d-none d-sm-inline-flex"
               onClick={() => { setPartitionInitialWarehouseId(undefined); setIsPartitionModalOpen(true); }}
-              title="Quản lý cấu trúc phân khu & ô vị trí"
+              title="Quản lý chia ô"
             >
-              <Grid size={15} /> <span className="d-none d-sm-inline">Phân khu & Ô</span>
+              <Grid size={14} className="me-sm-1" /> <span>Chia Ô</span>
             </button>
 
             <button
-              className="btn btn-outline-secondary btn-sm"
+              className="btn btn-outline-secondary btn-sm px-2 d-none d-sm-inline-flex"
               onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}
-              title="In mã QR dán các ô kệ"
+              title="In mã QR dán ô"
             >
-              <Printer size={15} /> <span className="d-none d-sm-inline">In QR Kệ</span>
+              <Printer size={14} className="me-sm-1" /> <span>In QR</span>
             </button>
           </div>
         </div>
@@ -974,7 +979,8 @@ function App() {
                 {/* Visual Movement Step Progress Bar */}
                 <div className="card card-sm mb-3">
                   <div className="card-body p-2">
-                    <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    {/* Desktop 5-step Badges */}
+                    <div className="d-none d-md-flex align-items-center justify-content-between flex-wrap gap-2">
                       <span className={`badge ${movementStep === 'idle' ? 'bg-primary' : 'bg-success-lt'} p-2`}>
                         1. Chọn sản phẩm
                       </span>
@@ -994,6 +1000,30 @@ function App() {
                       <span className={`badge ${movementStep === 'completed' ? 'bg-success' : 'bg-secondary-lt text-muted'} p-2`}>
                         5. Hoàn tất
                       </span>
+                    </div>
+
+                    {/* Mobile Compact Progress */}
+                    <div className="d-flex d-md-none flex-column gap-1 p-1">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <strong className="text-primary" style={{ fontSize: '0.8rem' }}>
+                          {movementStep === 'idle' && 'Bước 1/5: Chọn / Quét sản phẩm'}
+                          {movementStep === 'product_selected' && 'Bước 2/5: Xác nhận thông tin SP'}
+                          {movementStep === 'moving' && 'Bước 3/5: Quét mã QR vị trí đích'}
+                          {movementStep === 'destination_scanned' && 'Bước 4/5: Kiểm tra & Lưu'}
+                          {movementStep === 'completed' && 'Bước 5/5: Hoàn tất di chuyển!'}
+                        </strong>
+                        <span className="badge bg-primary-lt" style={{ fontSize: '0.72rem' }}>
+                          {movementStep === 'idle' ? '20%' : movementStep === 'product_selected' ? '40%' : movementStep === 'moving' ? '60%' : movementStep === 'destination_scanned' ? '80%' : '100%'}
+                        </span>
+                      </div>
+                      <div className="progress progress-sm" style={{ height: '4px' }}>
+                        <div
+                          className="progress-bar bg-primary"
+                          style={{
+                            width: movementStep === 'idle' ? '20%' : movementStep === 'product_selected' ? '40%' : movementStep === 'moving' ? '60%' : movementStep === 'destination_scanned' ? '80%' : '100%'
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1750,33 +1780,31 @@ function App() {
         </footer>
       </div>
 
-      {/* Mobile Bottom Tab Navigation */}
-      <div className="mobile-bottom-nav">
+      {/* Mobile Bottom Tab Navigation (Native App Style) */}
+      <nav className="mobile-bottom-nav d-flex d-md-none" aria-label="Mobile Navigation">
         <button className={`mobile-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-          <LayoutDashboard size={18} />
+          <LayoutDashboard size={20} />
           <span>Tổng quan</span>
         </button>
-        <button className={`mobile-nav-item ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
-          <QrCode size={18} />
-          <span>Di chuyển</span>
-        </button>
         <button className={`mobile-nav-item ${activeTab === 'maps' ? 'active' : ''}`} onClick={() => setActiveTab('maps')}>
-          <MapIcon size={18} />
+          <MapIcon size={20} />
           <span>Bản đồ</span>
         </button>
+        <button className={`mobile-nav-item highlight-scanner ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => { setActiveTab('scanner'); resetScannerFlow(); }}>
+          <div className="scanner-icon-box">
+            <QrCode size={22} />
+          </div>
+          <span>Di chuyển</span>
+        </button>
         <button className={`mobile-nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
-          <Search size={18} />
+          <Search size={20} />
           <span>Tra cứu</span>
         </button>
-        <button className={`mobile-nav-item ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>
-          <History size={18} />
-          <span>Lịch sử</span>
-        </button>
-        <button className={`mobile-nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-          <SettingsIcon size={18} />
+        <button className={`mobile-nav-item ${activeTab === 'history' || activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab(activeTab === 'history' ? 'settings' : 'history')}>
+          <SettingsIcon size={20} />
           <span>Cấu hình</span>
         </button>
-      </div>
+      </nav>
 
       {/* QR PRINT MANAGER MODAL */}
       {isPrintModalOpen && (
