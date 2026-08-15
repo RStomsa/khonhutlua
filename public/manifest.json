@@ -1,15 +1,91 @@
 {
-  "short_name": "KhoPWA",
-  "name": "Warehouse Management PWA",
+  "$schema": "https://json.schemastore.org/web-manifest-combined.json",
+  "id": "khonhutlua-pwa-v1",
+  "name": "Kho Nhựt Lúa - Quản Lý Kho & Vệ Tinh",
+  "short_name": "Kho Nhựt Lúa",
+  "description": "Hệ thống PWA quản lý luân chuyển kho, quét mã QR/Barcode AI và định vị bản đồ vệ tinh GPS",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "orientation": "any",
+  "theme_color": "#0054a6",
+  "background_color": "#f6f8fb",
+  "lang": "vi-VN",
+  "dir": "ltr",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
     {
-      "src": "favicon.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#0f172a",
-  "background_color": "#0f172a"
+  "shortcuts": [
+    {
+      "name": "Di chuyển kho",
+      "short_name": "Di chuyển",
+      "description": "Quét mã QR và di chuyển sản phẩm vào ô kệ",
+      "url": "/?tab=scanner",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "Bản đồ vệ tinh",
+      "short_name": "Bản đồ",
+      "description": "Xem bản đồ định vị kho và ô kệ vệ tinh",
+      "url": "/?tab=maps",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "Tra cứu kho",
+      "short_name": "Tra cứu",
+      "description": "Tìm kiếm vị trí và lịch sử sản phẩm",
+      "url": "/?tab=search",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "any"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
 }

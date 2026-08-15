@@ -21,7 +21,9 @@ import {
   Printer,
   Grid,
   PackagePlus,
-  Box
+  Box,
+  Download,
+  Smartphone
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -62,9 +64,11 @@ import { QRPrintManager } from './components/QRPrintManager';
 import { WarehousePartitionManager } from './components/WarehousePartitionManager';
 import { ProductImportManager } from './components/ProductImportManager';
 
+type ActiveTab = 'dashboard' | 'scanner' | 'maps' | 'search' | 'history' | 'settings';
+
 function App() {
   // --- Navigation State ---
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'scanner' | 'maps' | 'search' | 'history' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
 
   // --- Database Data States ---
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -129,6 +133,10 @@ function App() {
     key: getSupabaseConfig().key
   });
 
+  // --- PWA Installation & Device State ---
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+  const [isPwaInstalled, setIsPwaInstalled] = useState<boolean>(false);
+
   // --- Load Initial Data ---
   const loadData = async () => {
     try {
@@ -159,6 +167,32 @@ function App() {
 
   useEffect(() => {
     loadData();
+
+    // 1. Detect PWA Standalone Mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    setIsPwaInstalled(isStandalone);
+
+    // 2. Listen to PWA Install Prompt
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    const handleAppInstalled = () => {
+      setIsPwaInstalled(true);
+      setDeferredInstallPrompt(null);
+      showNotification('success', '🎉 Ứng dụng Kho Nhựt Lúa PWA đã được cài đặt vào máy của bạn!');
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // 3. Check URL parameters for PWA shortcut navigation
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab') as ActiveTab | null;
+    if (tabParam && ['dashboard', 'scanner', 'maps', 'search', 'history', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+
     const unsubscribe = subscribeToRealtimeChanges(() => {
       loadData();
     });
@@ -170,10 +204,26 @@ function App() {
     }, 15000);
 
     return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.removeEventListener('appinstalled', handleAppInstalled);
       unsubscribe();
       clearInterval(interval);
     };
   }, []);
+
+  const handleInstallPwa = async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsPwaInstalled(true);
+        showNotification('success', '🎉 Đã cài đặt PWA thành công!');
+      }
+      setDeferredInstallPrompt(null);
+    } else {
+      showNotification('info', '📱 Trên iOS/Safari: Bấm nút Chia sẻ (Share) ➔ Chọn "Thêm vào Màn hình chính" (Add to Home Screen).');
+    }
+  };
 
   const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
     setNotification({ type, message });
@@ -508,6 +558,20 @@ function App() {
           </div>
 
           <div className="d-flex align-items-center gap-2">
+            {!isPwaInstalled ? (
+              <button
+                className="btn btn-outline-primary btn-sm"
+                onClick={handleInstallPwa}
+                title="Cài đặt ứng dụng PWA vào điện thoại / máy tính"
+              >
+                <Download size={14} className="me-1 text-primary" /> <span className="d-none d-sm-inline">Cài App PWA</span>
+              </button>
+            ) : (
+              <span className="badge bg-primary-lt d-none d-sm-inline-flex" style={{ padding: '5px 8px' }}>
+                <Smartphone size={13} className="me-1 text-primary" /> App PWA
+              </span>
+            )}
+
             <button
               className="btn btn-primary btn-sm"
               onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}
@@ -788,6 +852,11 @@ function App() {
                         <button className="btn btn-outline-secondary w-100 py-2 justify-content-start" onClick={() => { setPrintInitialWarehouseId(undefined); setIsPrintModalOpen(true); }}>
                           <Printer size={18} className="me-2" /> In Mã QR Dán Ô Kệ
                         </button>
+                        {!isPwaInstalled && (
+                          <button className="btn btn-outline-success w-100 py-2 justify-content-start" onClick={handleInstallPwa}>
+                            <Download size={18} className="me-2" /> Cài đặt App PWA vào Máy
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
