@@ -559,6 +559,9 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
         length_m: tempLength
       });
       if (updated) {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([tempGps.lat, tempGps.lng], 19, { duration: 0.5 });
+        }
         alert(`✅ Đã lưu và đồng bộ vị trí [${updated.code} - ${updated.name}] vào Database thành công!`);
         if (onDataChanged) onDataChanged();
         setIsCalibrateMode(false);

@@ -81,8 +81,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 1 - Kho Lúa Nhựt Chính',
     width_m: 18.0,
     length_m: 24.0,
-    gps_lat: 10.777050,
-    gps_lng: 106.700500,
+    gps_lat: 15.916332,
+    gps_lng: 108.260150,
     color: '#ef4444',
     created_at: new Date().toISOString()
   },
@@ -92,8 +92,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 2 - Kho Phụ Đông Bắc',
     width_m: 15.0,
     length_m: 15.0,
-    gps_lat: 10.777200,
-    gps_lng: 106.701150,
+    gps_lat: 15.916420,
+    gps_lng: 108.260450,
     color: '#22c55e',
     created_at: new Date().toISOString()
   },
@@ -103,8 +103,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 3 - Kho Đóng Gói Phía Đông',
     width_m: 12.0,
     length_m: 16.0,
-    gps_lat: 10.776850,
-    gps_lng: 106.701350,
+    gps_lat: 15.916250,
+    gps_lng: 108.260520,
     color: '#eab308',
     created_at: new Date().toISOString()
   },
@@ -114,8 +114,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 4 - Dãy Dọc Phía Nam',
     width_m: 12.0,
     length_m: 20.0,
-    gps_lat: 10.776700,
-    gps_lng: 106.701050,
+    gps_lat: 15.916180,
+    gps_lng: 108.260380,
     color: '#3b82f6',
     created_at: new Date().toISOString()
   }
@@ -399,7 +399,7 @@ export const createWarehouse = async (
 
 export const updateWarehouse = async (
   warehouseId: string,
-  updates: Partial<Pick<Warehouse, 'name' | 'width_m' | 'length_m' | 'gps_lat' | 'gps_lng' | 'color'>>
+  updates: Partial<Pick<Warehouse, 'code' | 'name' | 'width_m' | 'length_m' | 'gps_lat' | 'gps_lng' | 'color'>>
 ): Promise<Warehouse | null> => {
   const current = await idbGetAll<Warehouse>(STORES.WAREHOUSES);
   const found = current.find(w => w.id === warehouseId);
@@ -558,6 +558,67 @@ export const deleteWarehouseLocation = async (locationId: string): Promise<boole
     }
   }
   return true;
+};
+
+export const repartitionWarehouseGrid = async (
+  warehouseId: string,
+  rows: number,
+  cols: number,
+  rowPrefixes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+): Promise<WarehouseLocation[]> => {
+  const currentLocs = await idbGetAll<WarehouseLocation>(STORES.LOCATIONS);
+  const toDelete = currentLocs.filter(l => l.warehouse_id === warehouseId);
+  for (const loc of toDelete) {
+    await idbDeleteItem(STORES.LOCATIONS, loc.id);
+  }
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').delete().eq('warehouse_id', warehouseId);
+    } catch (e) {
+      console.warn('Delete old locations failed:', e);
+    }
+  }
+
+  const wh = (await idbGetAll<Warehouse>(STORES.WAREHOUSES)).find(w => w.id === warehouseId);
+  const widthM = wh?.width_m || 15.0;
+  const lengthM = wh?.length_m || 20.0;
+  const cellW = widthM / cols;
+  const cellH = lengthM / rows;
+
+  const newLocs: WarehouseLocation[] = [];
+  for (let r = 0; r < rows; r++) {
+    const prefix = rowPrefixes[r] || `R${r + 1}`;
+    for (let c = 0; c < cols; c++) {
+      const colNum = (c + 1).toString().padStart(2, '0');
+      const code = `${prefix}${colNum}`;
+      const id = crypto.randomUUID ? crypto.randomUUID() : `c${Math.random().toString(36).substr(2, 8)}-0000-0000-0000-000000000000`;
+      const loc: WarehouseLocation = {
+        id,
+        warehouse_id: warehouseId,
+        zone_id: null,
+        code,
+        x_m: c * cellW,
+        y_m: r * cellH,
+        width_m: Number((cellW * 0.9).toFixed(1)),
+        height_m: Number((cellH * 0.9).toFixed(1)),
+        qr_payload: `WAREHOUSE_LOCATION:${id}`,
+        created_at: new Date().toISOString()
+      };
+      newLocs.push(loc);
+    }
+  }
+
+  await idbPutItems(STORES.LOCATIONS, newLocs);
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouse_locations').upsert(newLocs);
+    } catch (e) {
+      console.warn('Upsert new locations failed:', e);
+    }
+  }
+
+  return newLocs;
 };
 
 // --- 4. Products APIs ---
