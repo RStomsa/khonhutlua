@@ -70,9 +70,9 @@ const TILE_PROVIDERS = {
   }
 };
 
-// Default center GPS anchor (Xưởng Lúa Nhựt thực tế)
-const DEFAULT_CENTER_LAT = 15.916332;
-const DEFAULT_CENTER_LNG = 108.260327;
+// Default center GPS anchor (Xưởng Lúa Nhựt - Quảng Nam thực tế)
+const DEFAULT_CENTER_LAT = 15.916620314599067;
+const DEFAULT_CENTER_LNG = 108.2603092454658;
 
 // Helper: Convert meters to latitude offset
 const metersToLat = (meters: number) => meters / 111320;

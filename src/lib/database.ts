@@ -81,8 +81,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 1 - Kho Lúa Nhựt Chính',
     width_m: 18.0,
     length_m: 24.0,
-    gps_lat: 15.916332,
-    gps_lng: 108.260150,
+    gps_lat: 15.916620,
+    gps_lng: 108.260309,
     color: '#ef4444',
     created_at: new Date().toISOString()
   },
@@ -92,8 +92,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 2 - Kho Phụ Đông Bắc',
     width_m: 15.0,
     length_m: 15.0,
-    gps_lat: 15.916420,
-    gps_lng: 108.260450,
+    gps_lat: 15.916730,
+    gps_lng: 108.260580,
     color: '#22c55e',
     created_at: new Date().toISOString()
   },
@@ -103,8 +103,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 3 - Kho Đóng Gói Phía Đông',
     width_m: 12.0,
     length_m: 16.0,
-    gps_lat: 15.916250,
-    gps_lng: 108.260520,
+    gps_lat: 15.916520,
+    gps_lng: 108.260650,
     color: '#eab308',
     created_at: new Date().toISOString()
   },
@@ -114,8 +114,8 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     name: 'Kho 4 - Dãy Dọc Phía Nam',
     width_m: 12.0,
     length_m: 20.0,
-    gps_lat: 15.916180,
-    gps_lng: 108.260380,
+    gps_lat: 15.916450,
+    gps_lng: 108.260350,
     color: '#3b82f6',
     created_at: new Date().toISOString()
   }
