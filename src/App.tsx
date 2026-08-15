@@ -1447,23 +1447,56 @@ function App() {
         {/* SCREEN: SETTINGS */}
         {activeTab === 'settings' && (
           <div>
-            <h2 className="screen-title"><SettingsIcon /> Cấu hình Hệ thống</h2>
+            <h2 className="screen-title"><SettingsIcon /> Cấu hình Hệ thống & Kết nối Supabase</h2>
             
-            {/* Database Selection & Supabase Settings */}
+            {/* Server Connection Status Card */}
             <div className="glass-card">
-              <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Database size={20} /> Kết nối Máy chủ (Supabase)
-              </h3>
-              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: '#0f172a' }}>
+                  <Database size={20} className="text-primary" /> Trạng thái Máy chủ
+                </h3>
+                {isDbOnline ? (
+                  <span className="badge badge-completed" style={{ fontSize: '0.82rem', padding: '6px 14px' }}>
+                    🟢 Đã kết nối Supabase (Realtime Online)
+                  </span>
+                ) : (
+                  <span className="badge badge-started" style={{ fontSize: '0.82rem', padding: '6px 14px' }}>
+                    🟡 Chế độ Ngoại tuyến (Local Storage)
+                  </span>
+                )}
+              </div>
+
+              {/* Data Overview Stats */}
+              <div className="stats-grid" style={{ marginBottom: '16px' }}>
+                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
+                  <span className="stat-label">Tổng số kho:</span>
+                  <span className="stat-value" style={{ fontSize: '1.4rem' }}>{warehouses.length}</span>
+                </div>
+                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
+                  <span className="stat-label">Tổng số ô kệ:</span>
+                  <span className="stat-value" style={{ fontSize: '1.4rem' }}>{allLocations.length}</span>
+                </div>
+                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
+                  <span className="stat-label">Hàng đang lưu:</span>
+                  <span className="stat-value text-success" style={{ fontSize: '1.4rem' }}>
+                    {currentLocations.filter(c => c.location_id).length}
+                  </span>
+                </div>
+                <div className="glass-card stat-card" style={{ padding: '12px 16px', marginBottom: 0 }}>
+                  <span className="stat-label">Nhật ký luân chuyển:</span>
+                  <span className="stat-value" style={{ fontSize: '1.4rem' }}>{movementsHistory.length}</span>
+                </div>
+              </div>
+
               <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
-                Hệ thống tự động đọc cấu hình từ file cài đặt <code style={{ color: 'var(--color-primary)' }}>.env</code> (hoặc Vercel Environment Variables) và tự động kết nối, tự động đẩy sơ đồ kho và dữ liệu lên máy chủ.
+                Hệ thống tự động đọc cấu hình từ file <code style={{ color: 'var(--color-primary)' }}>.env</code> (hoặc Vercel Environment Variables). Khi kết nối thành công, mọi thay đổi trên điện thoại hoặc máy tính đều được đồng bộ tức thì.
               </p>
 
               {getSupabaseConfig().isFromEnv && (
-                <div className="glass-card" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'var(--color-success)', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="glass-card" style={{ background: '#ecfdf5', borderColor: '#a7f3d0', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle className="text-success" size={18} />
-                  <span style={{ fontSize: '0.82rem', color: 'var(--color-success)' }}>
-                    Đã tự động nạp cấu hình kết nối trực tiếp từ file <strong>.env</strong>!
+                  <span style={{ fontSize: '0.82rem', color: '#065f46' }}>
+                    Đang tự động nạp cấu hình trực tiếp từ file <strong>.env</strong> trong mã nguồn!
                   </span>
                 </div>
               )}
@@ -1493,27 +1526,123 @@ function App() {
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
                   {isDbOnline && (
-                    <button type="button" className="btn btn-secondary" onClick={handleClearSettings}>
+                    <button type="button" className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleClearSettings}>
                       Ngắt kết nối Supabase
                     </button>
                   )}
-                  <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                  <button type="submit" className="btn btn-primary" style={{ width: 'auto' }} disabled={isLoading}>
                     {isLoading ? 'Đang kết nối...' : 'Lưu & Kết nối Supabase'}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    style={{ width: 'auto' }}
+                    onClick={async () => {
+                      showNotification('info', 'Đang đẩy dữ liệu mẫu lên Supabase...');
+                      await autoBootstrapSupabaseDatabase();
+                      await loadData();
+                      showNotification('success', 'Đã nạp dữ liệu kho & sản phẩm mẫu lên Supabase thành công!');
+                    }}
+                  >
+                    ⚡ Nạp/Đẩy dữ liệu mẫu lên Supabase
                   </button>
                 </div>
               </form>
             </div>
 
+            {/* SQL Migration Script Copy Box */}
+            <div className="glass-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                  📜 Mã SQL Khởi tạo Database (Chạy trong Supabase SQL Editor)
+                </h3>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem' }}
+                  onClick={() => {
+                    const sqlText = `-- Supabase Migration: 001_warehouse_schema.sql
+CREATE TABLE IF NOT EXISTS public.warehouses (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    columns INTEGER NOT NULL DEFAULT 1,
+    rows INTEGER NOT NULL DEFAULT 1,
+    type TEXT NOT NULL DEFAULT 'grid',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.warehouse_locations (
+    id TEXT PRIMARY KEY,
+    warehouse_id TEXT REFERENCES public.warehouses(id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    column_index INTEGER NOT NULL DEFAULT 0,
+    row_index INTEGER NOT NULL DEFAULT 0,
+    qr_payload TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.product_current_locations (
+    product_code TEXT PRIMARY KEY,
+    location_id TEXT REFERENCES public.warehouse_locations(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.product_location_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_code TEXT NOT NULL,
+    from_location_id TEXT REFERENCES public.warehouse_locations(id) ON DELETE SET NULL,
+    to_location_id TEXT REFERENCES public.warehouse_locations(id) ON DELETE SET NULL,
+    status TEXT NOT NULL CHECK (status IN ('started', 'completed')),
+    ocr_confidence NUMERIC,
+    ocr_image_path TEXT,
+    gps_lat NUMERIC,
+    gps_lng NUMERIC,
+    user_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.warehouse_settings (
+    id TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouses, public.warehouse_locations, public.product_current_locations, public.product_location_movements, public.warehouse_settings;
+`;
+                    navigator.clipboard.writeText(sqlText);
+                    showNotification('success', 'Đã sao chép toàn bộ mã SQL vào bộ nhớ đệm (Clipboard)! Hãy dán vào SQL Editor của Supabase.');
+                  }}
+                >
+                  📋 Sao chép mã SQL
+                </button>
+              </div>
+
+              <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: '10px' }}>
+                💡 Nếu tạo mới một dự án trên <strong>Supabase Dashboard</strong>: Vào mục <strong>SQL Editor</strong> ➔ Tạo <strong>New query</strong> ➔ Bấm nút <em>"Sao chép mã SQL"</em> ở trên ➔ Dán vào và bấm <strong>RUN</strong>.
+              </p>
+
+              <pre style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '12px', borderRadius: '8px', fontSize: '0.75rem', maxHeight: '180px', overflowY: 'auto', color: '#334155' }}>
+                {`CREATE TABLE IF NOT EXISTS public.warehouses (id TEXT PRIMARY KEY, name TEXT NOT NULL, columns INT, rows INT, type TEXT);
+CREATE TABLE IF NOT EXISTS public.warehouse_locations (id TEXT PRIMARY KEY, warehouse_id TEXT, code TEXT, qr_payload TEXT);
+CREATE TABLE IF NOT EXISTS public.product_current_locations (product_code TEXT PRIMARY KEY, location_id TEXT);
+CREATE TABLE IF NOT EXISTS public.product_location_movements (id UUID PRIMARY KEY, product_code TEXT, from_location_id TEXT, to_location_id TEXT, status TEXT);
+CREATE TABLE IF NOT EXISTS public.warehouse_settings (id TEXT PRIMARY KEY, value JSONB);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.warehouses, public.warehouse_locations, public.product_current_locations, public.product_location_movements, public.warehouse_settings;`}
+              </pre>
+            </div>
+
             {/* Offline sync diagnostics panel */}
             <div className="glass-card">
-              <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: 600 }}>Quản lý Dữ liệu Ngoại tuyến</h3>
+              <h3 style={{ marginBottom: '16px', fontSize: '1.2rem', fontWeight: 600 }}>Quản lý Dữ liệu Ngoại tuyến (Offline Queue)</h3>
               <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
-                Nếu thiết bị của bạn bị mất mạng trong lúc di chuyển sản phẩm, giao dịch sẽ được đưa vào hàng đợi offline.
+                Nếu thiết bị của bạn bị mất mạng trong lúc di chuyển sản phẩm, giao dịch sẽ được đưa vào hàng đợi offline và tự động đẩy lên máy chủ khi có mạng trở lại.
               </p>
               
-              <div className="input-group" style={{ background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="input-group" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <span className="input-label" style={{ marginBottom: 0 }}>Giao dịch đang xếp hàng:</span>
                   <strong>{syncOutbox.length} giao dịch chờ gửi</strong>
@@ -1536,7 +1665,7 @@ function App() {
                 Xóa sạch dữ liệu đã lưu trong Local Storage của trình duyệt và nạp lại dữ liệu 4 kho ban đầu (K1-K4) để bắt đầu kiểm thử từ đầu.
               </p>
               
-              <button className="btn btn-secondary" style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }} onClick={handleResetLocalDb}>
+              <button className="btn btn-secondary" style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)', width: 'auto' }} onClick={handleResetLocalDb}>
                 Reset dữ liệu Local
               </button>
             </div>
