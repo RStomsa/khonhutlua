@@ -28,19 +28,25 @@ import {
 export * from '../types/warehouse';
 
 // --- Production Environment Resolution ---
-const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-const envAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+const DEFAULT_PROD_URL = 'https://sfzzqgcitwpkvebozcuh.supabase.co';
+const DEFAULT_PROD_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmenpxZ2NpdHdwa3ZlYm96Y3VoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NDYxNzgsImV4cCI6MjEwMjMyMjE3OH0.T2KSLqjF4fvPlCFfcyiFvhog4J0VmwGg5QJ276xTPOo';
+
+let envUrl = (import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('supabase_url') || DEFAULT_PROD_URL).trim();
+let envAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_key') || DEFAULT_PROD_KEY).trim();
 
 let supabaseClient: SupabaseClient | null = null;
 
-const initSupabase = () => {
+export const initSupabase = (customUrl?: string, customKey?: string) => {
+  if (customUrl) envUrl = customUrl.trim();
+  if (customKey) envAnonKey = customKey.trim();
+
   if (envUrl && envAnonKey) {
     try {
       supabaseClient = createClient(envUrl, envAnonKey, {
         auth: { persistSession: true },
         realtime: { params: { eventsPerSecond: 10 } }
       });
-      console.log('⚡ Supabase Client initialized successfully from Environment.');
+      console.log('⚡ Supabase Client initialized successfully.');
     } catch (e) {
       console.error('Failed to initialize Supabase client:', e);
       supabaseClient = null;
@@ -57,9 +63,15 @@ export const isSupabaseEnabled = (): boolean => !!supabaseClient;
 export const getSupabaseConfig = () => ({
   url: envUrl,
   key: envAnonKey,
-  isFromEnv: Boolean(envUrl && envAnonKey),
+  isFromEnv: Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY),
   isEnabled: !!supabaseClient
 });
+
+export const saveCustomSupabaseConfig = (url: string, key: string) => {
+  localStorage.setItem('supabase_url', url.trim());
+  localStorage.setItem('supabase_key', key.trim());
+  initSupabase(url, key);
+};
 
 // --- Dynamic Seed Data for First-Time Setup / Offline Fallback ---
 const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [

@@ -44,6 +44,9 @@ import {
   getSyncOutbox,
   syncOfflineQueue,
   isSupabaseEnabled,
+  getSupabaseConfig,
+  saveCustomSupabaseConfig,
+  initializeProductionSeed,
   autoBootstrapSupabaseDatabase,
   subscribeToRealtimeChanges,
   resetLocalDatabase
@@ -108,9 +111,16 @@ function App() {
     history: ProductLocationMovement[];
   } | null>(null);
 
+  // --- Settings Form State ---
+  const [supabaseForm, setSupabaseForm] = useState({
+    url: getSupabaseConfig().url,
+    key: getSupabaseConfig().key
+  });
+
   // --- Load Initial Data ---
   const loadData = async () => {
     try {
+      await initializeProductionSeed();
       setIsDbOnline(isSupabaseEnabled());
       const [whs, zns, locs, prods, curLocs, moves, outbox] = await Promise.all([
         getWarehouses(),
@@ -958,35 +968,85 @@ function App() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  style={{ width: 'auto' }}
-                  onClick={async () => {
-                    showNotification('info', 'Đang nạp dữ liệu sản phẩm và kho lên Supabase...');
-                    await autoBootstrapSupabaseDatabase();
-                    await loadData();
-                    showNotification('success', 'Đã nạp dữ liệu thành công!');
-                  }}
-                >
-                  ⚡ Nạp/Đẩy dữ liệu mẫu lên Supabase
-                </button>
+              {/* Supabase Connection Settings Form */}
+              <div style={{ marginTop: '20px', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', color: '#0f172a' }}>
+                  ⚙️ Thông tin Kết nối Supabase
+                </h4>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Project URL:
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={supabaseForm.url}
+                      onChange={(e) => setSupabaseForm({ ...supabaseForm, url: e.target.value })}
+                      placeholder="https://xyzcompany.supabase.co"
+                    />
+                  </div>
 
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ width: 'auto', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
-                  onClick={async () => {
-                    if (window.confirm('Khôi phục toàn bộ dữ liệu mẫu trong IndexedDB?')) {
-                      await resetLocalDatabase();
+                  <div>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
+                      Anon Public API Key:
+                    </label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={supabaseForm.key}
+                      onChange={(e) => setSupabaseForm({ ...supabaseForm, key: e.target.value })}
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: 'auto' }}
+                    onClick={async () => {
+                      saveCustomSupabaseConfig(supabaseForm.url, supabaseForm.key);
+                      showNotification('info', 'Đang kết nối lại Supabase...');
+                      await autoBootstrapSupabaseDatabase();
                       await loadData();
-                      showNotification('success', 'Đã reset IndexedDB thành công!');
-                    }
-                  }}
-                >
-                  Khôi phục Dữ liệu IndexedDB
-                </button>
+                      showNotification('success', 'Đã lưu cấu hình và kết nối Supabase thành công!');
+                    }}
+                  >
+                    💾 Lưu & Kết nối Supabase
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-success"
+                    style={{ width: 'auto' }}
+                    onClick={async () => {
+                      showNotification('info', 'Đang nạp dữ liệu sản phẩm và kho lên Supabase...');
+                      await autoBootstrapSupabaseDatabase();
+                      await loadData();
+                      showNotification('success', 'Đã nạp dữ liệu thành công!');
+                    }}
+                  >
+                    ⚡ Nạp/Đẩy dữ liệu mẫu lên Supabase
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
+                    onClick={async () => {
+                      if (window.confirm('Khôi phục toàn bộ dữ liệu mẫu trong IndexedDB?')) {
+                        await resetLocalDatabase();
+                        await loadData();
+                        showNotification('success', 'Đã reset IndexedDB thành công!');
+                      }
+                    }}
+                  >
+                    Khôi phục Dữ liệu IndexedDB
+                  </button>
+                </div>
               </div>
             </div>
           </div>
