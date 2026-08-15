@@ -651,6 +651,116 @@ export const getProductById = async (productId: string): Promise<Product | null>
   return allProds.find(p => p.id === productId) || null;
 };
 
+export const createProduct = async (
+  productCode: string,
+  name?: string,
+  lengthValue = 120,
+  lengthUnit = 'cm',
+  initialLocationId: string | null = null,
+  userName = 'Admin'
+): Promise<{ product: Product; currentLocation: ProductCurrentLocation }> => {
+  const cleanCode = productCode.trim();
+  const existing = await getProductByCode(cleanCode);
+  let product: Product;
+
+  if (existing) {
+    product = existing;
+  } else {
+    const id = crypto.randomUUID ? crypto.randomUUID() : `e${Math.random().toString(36).substr(2, 7)}-0000-0000-0000-000000000000`;
+    product = {
+      id,
+      product_code: cleanCode,
+      name: name?.trim() || `Thanh Nhựa ${cleanCode}`,
+      length_value: lengthValue,
+      length_unit: lengthUnit,
+      status: 'active',
+      created_at: new Date().toISOString()
+    };
+    await idbPutItem(STORES.PRODUCTS, product);
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('products').upsert(product);
+      } catch (e) {
+        console.warn('Upsert product queued offline:', e);
+        await queueIndexedDbOutbox('create_product', product);
+      }
+    }
+  }
+
+  // Handle Current Location Assignment
+  let curLoc = await getProductCurrentLocation(product.id);
+  const curLocId = curLoc?.id || (crypto.randomUUID ? crypto.randomUUID() : `d${Math.random().toString(36).substr(2, 7)}-0000-0000-0000-000000000000`);
+  const fromLocId = curLoc?.location_id || null;
+
+  curLoc = {
+    id: curLocId,
+    product_id: product.id,
+    location_id: initialLocationId,
+    updated_at: new Date().toISOString(),
+    updated_by: userName
+  };
+  await idbPutItem(STORES.PRODUCT_LOCATIONS, curLoc);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('product_current_locations').upsert(curLoc);
+    } catch (e) {
+      console.warn('Upsert curLoc queued offline:', e);
+    }
+  }
+
+  // Record initial movement history if placed in a location
+  if (initialLocationId) {
+    const moveId = crypto.randomUUID ? crypto.randomUUID() : `m_${Math.random().toString(36).substr(2, 9)}`;
+    const movement: ProductLocationMovement = {
+      id: moveId,
+      product_id: product.id,
+      from_location_id: fromLocId,
+      to_location_id: initialLocationId,
+      status: 'completed',
+      user_name: userName,
+      created_at: new Date().toISOString(),
+      idempotency_key: `INBOUND_${product.id}_${initialLocationId}_${Date.now()}`
+    };
+    await idbPutItem(STORES.MOVEMENTS, movement);
+    if (supabaseClient) {
+      try {
+        await supabaseClient.from('product_location_movements').insert(movement);
+      } catch (e) {
+        console.warn('Insert movement queued offline:', e);
+      }
+    }
+  }
+
+  return { product, currentLocation: curLoc };
+};
+
+export const bulkImportProducts = async (
+  items: Array<{
+    product_code: string;
+    name?: string;
+    length_value?: number;
+    length_unit?: string;
+    location_id?: string | null;
+  }>,
+  userName = 'Admin'
+): Promise<{ successCount: number; createdProducts: Product[] }> => {
+  const created: Product[] = [];
+  for (const item of items) {
+    if (!item.product_code || !item.product_code.trim()) continue;
+    const res = await createProduct(
+      item.product_code,
+      item.name,
+      item.length_value || 120,
+      item.length_unit || 'cm',
+      item.location_id || null,
+      userName
+    );
+    created.push(res.product);
+  }
+  return { successCount: created.length, createdProducts: created };
+};
+
 // --- 5. Product Current Locations APIs ---
 export const getCurrentProductLocations = async (): Promise<ProductCurrentLocation[]> => {
   if (supabaseClient) {

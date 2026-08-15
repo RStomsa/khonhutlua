@@ -19,7 +19,8 @@ import {
   Sparkles,
   Info,
   Printer,
-  Grid
+  Grid,
+  PackagePlus
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -57,6 +58,7 @@ import { parseQRPayload } from './lib/qr';
 import { WarehouseSatelliteMap } from './components/WarehouseSatelliteMap';
 import { QRPrintManager } from './components/QRPrintManager';
 import { WarehousePartitionManager } from './components/WarehousePartitionManager';
+import { ProductImportManager } from './components/ProductImportManager';
 
 function App() {
   // --- Navigation State ---
@@ -106,6 +108,8 @@ function App() {
   const [printInitialWarehouseId, setPrintInitialWarehouseId] = useState<string | undefined>(undefined);
   const [isPartitionModalOpen, setIsPartitionModalOpen] = useState(false);
   const [partitionInitialWarehouseId, setPartitionInitialWarehouseId] = useState<string | undefined>(undefined);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [prefilledImportCode, setPrefilledImportCode] = useState<string>('');
 
   // --- Search Screen States ---
   const [searchQuery, setSearchQuery] = useState('');
@@ -475,6 +479,15 @@ function App() {
           )}
 
           <button
+            className="btn btn-primary flex-center gap-sm"
+            style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)', background: '#2563eb', color: '#ffffff' }}
+            onClick={() => { setPrefilledImportCode(''); setIsImportModalOpen(true); }}
+            title="Nhập sản phẩm mới hoặc dán danh sách hàng loạt vào kho"
+          >
+            <PackagePlus size={15} /> Nhập Hàng / SP Mới
+          </button>
+
+          <button
             className="btn btn-secondary flex-center gap-sm"
             style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
             onClick={() => { setPartitionInitialWarehouseId(undefined); setIsPartitionModalOpen(true); }}
@@ -677,6 +690,19 @@ function App() {
                   >
                     ⚡ Danh mục sẵn có
                   </button>
+
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)', background: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }}
+                    onClick={() => {
+                      setPrefilledImportCode(manualProductCodeInput.trim());
+                      setIsImportModalOpen(true);
+                    }}
+                    title="Nhập mới sản phẩm hoặc dán danh sách hàng loạt"
+                  >
+                    <PackagePlus size={15} /> ➕ Nhập Lô / SP Mới
+                  </button>
                 </div>
 
                 {/* SUB-MODE 1: MANUAL TEXT INPUT */}
@@ -707,7 +733,7 @@ function App() {
                         <span className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '6px' }}>
                           Gợi ý tìm kiếm nhanh:
                         </span>
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px' }}>
                           {products
                             .filter(p =>
                               p.product_code.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase()) ||
@@ -724,6 +750,24 @@ function App() {
                                 👉 <strong>{p.product_code}</strong> ({p.name})
                               </button>
                             ))}
+                        </div>
+
+                        {/* Quick Inbound Shortcut for new untracked product */}
+                        <div style={{ padding: '10px 12px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#1e40af' }}>
+                            ✨ Chưa có mã <strong>[{manualProductCodeInput.trim()}]</strong> trong kho?
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ width: 'auto', padding: '4px 12px', fontSize: '0.78rem', background: '#2563eb' }}
+                            onClick={() => {
+                              setPrefilledImportCode(manualProductCodeInput.trim());
+                              setIsImportModalOpen(true);
+                            }}
+                          >
+                            <PackagePlus size={14} /> ➕ Nhập Mới Sản Phẩm Này
+                          </button>
                         </div>
                       </div>
                     )}
@@ -1263,6 +1307,19 @@ function App() {
           products={products}
           currentLocations={currentLocations}
           initialWarehouseId={partitionInitialWarehouseId}
+          onDataChanged={loadData}
+        />
+      )}
+
+      {/* PRODUCT IMPORT & BULK INBOUND MODAL */}
+      {isImportModalOpen && (
+        <ProductImportManager
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          warehouses={warehouses}
+          allLocations={allLocations}
+          currentLocations={currentLocations}
+          initialProductCode={prefilledImportCode}
           onDataChanged={loadData}
         />
       )}
