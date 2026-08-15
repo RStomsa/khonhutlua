@@ -91,7 +91,13 @@ function App() {
   const [activeToZone, setActiveToZone] = useState<WarehouseZone | null>(null);
   const [destinationGps, setDestinationGps] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
 
-  // QR Camera scanner state
+  // Product Input Modes for Step 1: 'manual' | 'ocr' | 'barcode' | 'catalog'
+  const [productInputMode, setProductInputMode] = useState<'manual' | 'ocr' | 'barcode' | 'catalog'>('manual');
+  const [manualProductCodeInput, setManualProductCodeInput] = useState('');
+  const [isProductBarcodeScannerActive, setIsProductBarcodeScannerActive] = useState(false);
+  const productBarcodeScannerRef = useRef<Html5Qrcode | null>(null);
+
+  // QR Camera scanner state for Destination (Step 4 & 5)
   const [isQrScannerActive, setIsQrScannerActive] = useState(false);
   const qrScannerRef = useRef<Html5Qrcode | null>(null);
 
@@ -191,14 +197,15 @@ function App() {
     setOcrPreviewUrl(URL.createObjectURL(file));
 
     try {
-      const result = await performOCR(file);
+      const knownCodes = products.map(p => p.product_code);
+      const result = await performOCR(file, knownCodes);
       if (result.matchedCode) {
         setOcrConfidence(result.confidence);
         setOcrStatus('success');
         resolveProductForMovement(result.matchedCode);
       } else {
         setOcrStatus('failed');
-        showNotification('error', `Không nhận diện được mã sản phẩm từ ảnh. Mã phát hiện: ${result.text || 'trống'}`);
+        showNotification('error', `Không nhận diện được mã sản phẩm từ ảnh. Văn bản phát hiện: ${result.text || 'trống'}`);
       }
     } catch (err: any) {
       setOcrStatus('failed');
@@ -206,15 +213,62 @@ function App() {
     }
   };
 
-  const resolveProductForMovement = (productCode: string) => {
-    const cleanCode = productCode.trim().toLowerCase();
-    const foundProd = products.find(p => p.product_code.toLowerCase() === cleanCode);
+  const startProductBarcodeScanner = async () => {
+    setIsProductBarcodeScannerActive(true);
+    try {
+      const html5QrCode = new Html5Qrcode('product-barcode-target');
+      productBarcodeScannerRef.current = html5QrCode;
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        async (decodedText) => {
+          stopProductBarcodeScanner();
+          resolveProductForMovement(decodedText);
+        },
+        () => {}
+      );
+    } catch (e) {
+      console.warn('Product Barcode camera failed:', e);
+      setIsProductBarcodeScannerActive(false);
+      showNotification('error', 'Không thể mở Camera. Vui lòng cho phép quyền Camera.');
+    }
+  };
+
+  const stopProductBarcodeScanner = async () => {
+    if (productBarcodeScannerRef.current && isProductBarcodeScannerActive) {
+      try {
+        await productBarcodeScannerRef.current.stop();
+        productBarcodeScannerRef.current.clear();
+      } catch (e) {}
+      setIsProductBarcodeScannerActive(false);
+    }
+  };
+
+  const handleManualProductSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!manualProductCodeInput.trim()) {
+      showNotification('info', 'Vui lòng nhập mã sản phẩm');
+      return;
+    }
+    resolveProductForMovement(manualProductCodeInput.trim());
+  };
+
+  const resolveProductForMovement = (productCodeOrQuery: string) => {
+    const cleanQuery = productCodeOrQuery.trim().toLowerCase();
+    
+    // Exact or substring match
+    const foundProd = products.find(
+      p => p.product_code.toLowerCase() === cleanQuery ||
+           p.product_code.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanQuery.replace(/[^a-z0-9]/g, '') ||
+           p.name.toLowerCase().includes(cleanQuery)
+    );
 
     if (!foundProd) {
-      showNotification('error', `Không tìm thấy sản phẩm [${productCode}] trong cơ sở dữ liệu!`);
+      showNotification('error', `Không tìm thấy sản phẩm [${productCodeOrQuery}] trong danh sách!`);
       return;
     }
 
+    stopProductBarcodeScanner();
     setActiveProduct(foundProd);
 
     // Resolve current location
@@ -230,7 +284,7 @@ function App() {
     }
 
     setMovementStep('product_selected');
-    showNotification('success', `Đã nhận diện sản phẩm: ${foundProd.product_code}`);
+    showNotification('success', `Đã chọn sản phẩm: ${foundProd.product_code} (${foundProd.name})`);
   };
 
   // --- Step 2: Start Move ---
@@ -349,6 +403,8 @@ function App() {
   };
 
   const resetScannerFlow = () => {
+    stopProductBarcodeScanner();
+    stopCameraQrScanner();
     setOcrPreviewUrl(null);
     setOcrConfidence(null);
     setOcrStatus('idle');
@@ -360,6 +416,7 @@ function App() {
     setActiveToWarehouse(null);
     setActiveToZone(null);
     setDestinationGps(null);
+    setManualProductCodeInput('');
   };
 
   // --- Search Operations ---
@@ -576,79 +633,210 @@ function App() {
           <div>
             <h2 className="screen-title"><QrCode /> Quy trình Di chuyển Sản phẩm (6 Bước Chuẩn)</h2>
 
-            {/* Step 1: OCR / Select Product */}
+            {/* Step 1: Multi-Modal Product Identification */}
             {movementStep === 'idle' && (
-              <div className="glass-card">
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '12px' }}>
-                  📷 Bước 1 & 2: Quét nhãn sản phẩm bằng Camera / Tải ảnh
+              <div className="glass-card animate-fade-in">
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '8px', color: '#0f172a' }}>
+                  📦 Bước 1 & 2: Chọn / Quét Sản Phẩm Cần Di Chuyển
                 </h3>
-                <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
-                  Đưa camera điện thoại về phía tem in mã sản phẩm (Ví dụ: <strong>e120.30</strong>). Hệ thống OCR sẽ tự động nhận diện mã.
+                <p className="text-muted" style={{ fontSize: '0.82rem', marginBottom: '16px' }}>
+                  Hỗ trợ <strong>Điền mã bằng tay</strong>, <strong>AI Vision OCR</strong>, <strong>Camera Barcode/QR</strong> hoặc <strong>Chọn nhanh danh mục</strong>.
                 </p>
 
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <label className="btn btn-primary" style={{ width: 'auto', cursor: 'pointer' }}>
-                    <Camera size={18} /> Chụp ảnh / Quét OCR
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleOcrImageSelected(e.target.files[0]);
-                        }
-                      }}
-                    />
-                  </label>
-
-                  <label className="btn btn-secondary" style={{ width: 'auto', cursor: 'pointer' }}>
-                    <Upload size={18} /> Chọn ảnh từ máy
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleOcrImageSelected(e.target.files[0]);
-                        }
-                      }}
-                    />
-                  </label>
+                {/* Sub-mode Tabs */}
+                <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '16px' }}>
+                  <button
+                    type="button"
+                    className={`btn ${productInputMode === 'manual' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
+                    onClick={() => { stopProductBarcodeScanner(); setProductInputMode('manual'); }}
+                  >
+                    ⌨️ Điền mã tay
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${productInputMode === 'ocr' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
+                    onClick={() => { stopProductBarcodeScanner(); setProductInputMode('ocr'); }}
+                  >
+                    📷 AI OCR Chụp tem
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${productInputMode === 'barcode' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
+                    onClick={() => { setProductInputMode('barcode'); }}
+                  >
+                    🔍 Quét Barcode/QR
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${productInputMode === 'catalog' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ width: 'auto', padding: '6px 14px', fontSize: '0.82rem', borderRadius: 'var(--radius-sm)' }}
+                    onClick={() => { stopProductBarcodeScanner(); setProductInputMode('catalog'); }}
+                  >
+                    ⚡ Danh mục sẵn có
+                  </button>
                 </div>
 
-                {ocrStatus === 'loading' && (
-                  <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <RefreshCw size={18} className="animate-spin text-primary" />
-                    <span>Đang xử lý nhận diện ký tự OCR...</span>
+                {/* SUB-MODE 1: MANUAL TEXT INPUT */}
+                {productInputMode === 'manual' && (
+                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <form onSubmit={handleManualProductSubmit}>
+                      <label style={{ fontSize: '0.82rem', fontWeight: 700, display: 'block', marginBottom: '6px', color: '#1e293b' }}>
+                        Nhập mã sản phẩm hoặc tên quy cách:
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Ví dụ: e120.30, e100, p500.45..."
+                          value={manualProductCodeInput}
+                          onChange={(e) => setManualProductCodeInput(e.target.value)}
+                          autoFocus
+                        />
+                        <button type="submit" className="btn btn-primary" style={{ width: 'auto', whiteSpace: 'nowrap' }}>
+                          <CheckCircle size={16} /> Chọn mã
+                        </button>
+                      </div>
+                    </form>
+
+                    {/* Live Suggestion Chips as user types */}
+                    {manualProductCodeInput.trim() && (
+                      <div style={{ marginTop: '10px' }}>
+                        <span className="text-muted" style={{ fontSize: '0.75rem', display: 'block', marginBottom: '6px' }}>
+                          Gợi ý tìm kiếm nhanh:
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          {products
+                            .filter(p =>
+                              p.product_code.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase()) ||
+                              p.name.toLowerCase().includes(manualProductCodeInput.trim().toLowerCase())
+                            )
+                            .map(p => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                className="btn btn-secondary"
+                                style={{ width: 'auto', padding: '4px 10px', fontSize: '0.78rem', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                                onClick={() => resolveProductForMovement(p.product_code)}
+                              >
+                                👉 <strong>{p.product_code}</strong> ({p.name})
+                              </button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {ocrPreviewUrl && (
-                  <div style={{ marginTop: '16px' }}>
-                    <img src={ocrPreviewUrl} alt="OCR Preview" style={{ maxHeight: '160px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                {/* SUB-MODE 2: AI OCR CAMERA / UPLOAD */}
+                {productInputMode === 'ocr' && (
+                  <div>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                      <label className="btn btn-primary" style={{ width: 'auto', cursor: 'pointer' }}>
+                        <Camera size={18} /> Chụp tem sản phẩm
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleOcrImageSelected(e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+
+                      <label className="btn btn-secondary" style={{ width: 'auto', cursor: 'pointer' }}>
+                        <Upload size={18} /> Chọn ảnh từ bộ nhớ
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleOcrImageSelected(e.target.files[0]);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    {ocrStatus === 'loading' && (
+                      <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '10px', padding: '12px', background: '#eff6ff', borderRadius: '6px' }}>
+                        <RefreshCw size={18} className="animate-spin text-primary" />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>AI Vision đang đọc & nhận diện ký tự tem...</span>
+                      </div>
+                    )}
+
+                    {ocrPreviewUrl && (
+                      <div style={{ marginTop: '14px' }}>
+                        <img src={ocrPreviewUrl} alt="OCR Preview" style={{ maxHeight: '160px', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Quick Select for Testing */}
-                <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-                  <span className="text-muted" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '8px' }}>
-                    ⚡ Hoặc chọn nhanh sản phẩm có sẵn để thử nghiệm:
-                  </span>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {products.map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="btn btn-secondary"
-                        style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem' }}
-                        onClick={() => resolveProductForMovement(p.product_code)}
-                      >
-                        📦 {p.product_code} ({p.length_value}{p.length_unit})
+                {/* SUB-MODE 3: LIVE BARCODE / QR SCANNER */}
+                {productInputMode === 'barcode' && (
+                  <div style={{ textAlign: 'center' }}>
+                    <div id="product-barcode-target" style={{ width: '100%', maxWidth: '360px', margin: '0 auto 12px' }} />
+
+                    {!isProductBarcodeScannerActive ? (
+                      <button className="btn btn-primary" style={{ width: 'auto', margin: '0 auto' }} onClick={startProductBarcodeScanner}>
+                        <Camera size={16} /> Bật Camera Quét Barcode / QR
                       </button>
-                    ))}
+                    ) : (
+                      <button className="btn btn-secondary" style={{ width: 'auto', margin: '0 auto' }} onClick={stopProductBarcodeScanner}>
+                        Tắt Camera Quét
+                      </button>
+                    )}
                   </div>
-                </div>
+                )}
+
+                {/* SUB-MODE 4: CATALOG LIST (GROUPED BY LENGTH) */}
+                {productInputMode === 'catalog' && (
+                  <div>
+                    <span className="text-muted" style={{ fontSize: '0.8rem', display: 'block', marginBottom: '10px' }}>
+                      Bấm vào sản phẩm bên dưới để bắt đầu di chuyển:
+                    </span>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+                      {products.map(p => {
+                        const curBinding = currentLocations.find(c => c.product_id === p.id);
+                        const curLoc = curBinding?.location_id ? allLocations.find(l => l.id === curBinding.location_id) : null;
+                        const curWh = curLoc ? warehouses.find(w => w.id === curLoc.warehouse_id) : null;
+
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              padding: '12px',
+                              background: '#f8fafc',
+                              border: '1.5px solid #e2e8f0',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onClick={() => resolveProductForMovement(p.product_code)}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                              <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{p.product_code}</strong>
+                              <span className="badge badge-completed" style={{ fontSize: '0.7rem' }}>
+                                {p.length_value} {p.length_unit}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '6px' }}>{p.name}</div>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: curLoc ? '#059669' : '#dc2626' }}>
+                              📍 {curLoc ? `${curWh?.code || ''} - Ô ${curLoc.code}` : 'Chưa có vị trí'}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
