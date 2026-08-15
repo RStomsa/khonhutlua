@@ -12,6 +12,8 @@ import {
   ZoomOut,
   Crosshair,
   Grid,
+  Move,
+  Save,
   ArrowRightLeft
 } from 'lucide-react';
 import type {
@@ -25,10 +27,11 @@ import type {
 import {
   createWarehouseLocation,
   deleteWarehouseLocation,
+  updateWarehouse,
   executeProductMovement
 } from '../lib/database';
 
-interface WarehouseSatelliteMapProps {
+export interface WarehouseSatelliteMapProps {
   warehouses: Warehouse[];
   zones?: WarehouseZone[];
   allLocations: WarehouseLocation[];
@@ -38,7 +41,7 @@ interface WarehouseSatelliteMapProps {
   onSelectLocation?: (locationId: string) => void;
   selectedLocationId?: string | null;
   highlightProductCode?: string | null;
-  onOpenPartitionModal?: (warehouseId?: string) => void;
+  onOpenPartitionModal?: (initialWarehouseId?: string) => void;
   onDataChanged?: () => void;
 }
 
@@ -111,6 +114,15 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
   // GPS Device Status
   const [gpsStatus, setGpsStatus] = useState<'idle' | 'locating' | 'success' | 'error'>('idle');
+
+  // --- Interactive Warehouse GPS Calibration / Positioning State ---
+  const [isCalibrateMode, setIsCalibrateMode] = useState(false);
+  const [calibratingWarehouseId, setCalibratingWarehouseId] = useState<string>('');
+  const [tempGps, setTempGps] = useState<{ lat: number; lng: number } | null>(null);
+  const [tempWidth, setTempWidth] = useState<number>(18.0);
+  const [tempLength, setTempLength] = useState<number>(24.0);
+  const [isSavingGps, setIsSavingGps] = useState(false);
+  const calibrationLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Inspector Quick Transfer State
   const [quickTargetWh, setQuickTargetWh] = useState<string>('');
@@ -206,10 +218,18 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     layersGroupRef.current = L.layerGroup().addTo(map);
     racksGroupRef.current = L.layerGroup().addTo(map);
     userGpsGroupRef.current = L.layerGroup().addTo(map);
+    calibrationLayerRef.current = L.layerGroup().addTo(map);
     mapInstanceRef.current = map;
 
     map.on('zoomend', () => {
       setCurrentZoom(map.getZoom());
+    });
+
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      // If in calibrate mode, set temp coordinates to clicked point
+      if ((window as any).__IS_CALIBRATE_MODE) {
+        setTempGps({ lat: e.latlng.lat, lng: e.latlng.lng });
+      }
     });
 
     return () => {
@@ -472,6 +492,83 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     );
   };
 
+  // Calibration Handlers
+  const handleSelectCalibratingWh = (whId: string) => {
+    setCalibratingWarehouseId(whId);
+    const wh = warehouses.find(w => w.id === whId);
+    if (wh) {
+      setTempGps({ lat: wh.gps_lat || DEFAULT_CENTER_LAT, lng: wh.gps_lng || DEFAULT_CENTER_LNG });
+      setTempWidth(wh.width_m || 15.0);
+      setTempLength(wh.length_m || 24.0);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.flyTo([wh.gps_lat || DEFAULT_CENTER_LAT, wh.gps_lng || DEFAULT_CENTER_LNG], 19, { duration: 1 });
+      }
+    }
+  };
+
+  // Live Draw Calibration Layer
+  useEffect(() => {
+    (window as any).__IS_CALIBRATE_MODE = isCalibrateMode;
+    const calLayer = calibrationLayerRef.current;
+    if (!calLayer) return;
+    calLayer.clearLayers();
+
+    if (isCalibrateMode && tempGps) {
+      const latHalf = metersToLat(tempLength / 2);
+      const lngHalf = metersToLng(tempWidth / 2, tempGps.lat);
+      const bounds: [[number, number], [number, number]] = [
+        [tempGps.lat - latHalf, tempGps.lng - lngHalf],
+        [tempGps.lat + latHalf, tempGps.lng + lngHalf]
+      ];
+
+      // Preview Rectangle
+      L.rectangle(bounds, {
+        color: '#d97706',
+        weight: 3.5,
+        fillColor: '#f59e0b',
+        fillOpacity: 0.45,
+        dashArray: '5, 5'
+      }).addTo(calLayer);
+
+      // Center Draggable Pin
+      const centerPin = L.marker([tempGps.lat, tempGps.lng], {
+        draggable: true
+      }).addTo(calLayer);
+
+      centerPin.on('dragend', (e: any) => {
+        const pos = e.target.getLatLng();
+        setTempGps({ lat: pos.lat, lng: pos.lng });
+      });
+
+      centerPin.bindPopup(`<strong>📍 Kho đang căn chỉnh</strong><br/>Kéo thả marker hoặc chạm lên mái nhà để dời`).openPopup();
+    }
+  }, [isCalibrateMode, tempGps, tempWidth, tempLength]);
+
+  const handleSaveWarehouseGps = async () => {
+    if (!calibratingWarehouseId || !tempGps) {
+      alert('Vui lòng chọn kho và chạm vào vị trí trên bản đồ');
+      return;
+    }
+    setIsSavingGps(true);
+    try {
+      const updated = await updateWarehouse(calibratingWarehouseId, {
+        gps_lat: tempGps.lat,
+        gps_lng: tempGps.lng,
+        width_m: tempWidth,
+        length_m: tempLength
+      });
+      if (updated) {
+        alert(`✅ Đã lưu và đồng bộ vị trí [${updated.code} - ${updated.name}] vào Database thành công!`);
+        if (onDataChanged) onDataChanged();
+        setIsCalibrateMode(false);
+      }
+    } catch (err: any) {
+      alert('Lỗi lưu vị trí kho: ' + (err.message || err));
+    } finally {
+      setIsSavingGps(false);
+    }
+  };
+
   const resetView = () => {
     setActiveWarehouseFocus(null);
     const map = mapInstanceRef.current;
@@ -537,6 +634,29 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
           </button>
 
           <button
+            className={`sat-tab-btn ${isCalibrateMode ? 'active' : ''}`}
+            style={{
+              background: isCalibrateMode ? '#fef3c7' : '#fffbeb',
+              color: isCalibrateMode ? '#b45309' : '#d97706',
+              borderColor: isCalibrateMode ? '#f59e0b' : '#fde68a',
+              fontWeight: 700
+            }}
+            onClick={() => {
+              if (!isCalibrateMode) {
+                const initialWh = activeWarehouseFocus || warehouses[0]?.id;
+                if (initialWh) handleSelectCalibratingWh(initialWh);
+                setIsCalibrateMode(true);
+              } else {
+                setIsCalibrateMode(false);
+              }
+            }}
+            title="Bật chế độ căn chỉnh và lưu vị trí kho lên bản đồ vệ tinh"
+          >
+            <Move size={14} />
+            <span>{isCalibrateMode ? 'Đang căn chỉnh' : '📍 Đặt vị trí Kho (GPS)'}</span>
+          </button>
+
+          <button
             className="sat-tab-btn"
             style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', borderColor: '#a7f3d0' }}
             onClick={() => onOpenPartitionModal && onOpenPartitionModal(activeWarehouseFocus || undefined)}
@@ -561,6 +681,125 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
 
       {/* Main Map Container */}
       <div className="sat-leaflet-container" ref={mapContainerRef}>
+        {/* Calibrate Mode Floating Drawer / Control Panel */}
+        {isCalibrateMode && (
+          <div
+            className="glass-card animate-fade-in"
+            style={{
+              position: 'absolute',
+              top: '12px',
+              left: '12px',
+              right: '12px',
+              zIndex: 1050,
+              background: 'rgba(255, 255, 255, 0.96)',
+              border: '2px solid #f59e0b',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+              padding: '14px',
+              borderRadius: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Move size={18} className="text-warning" />
+                <strong style={{ fontSize: '0.95rem', color: '#92400e' }}>
+                  Căn Chỉnh & Đặt Vị Trí Kho Trực Tiếp Lên Bản Đồ
+                </strong>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ width: 'auto', padding: '4px 10px', fontSize: '0.75rem' }}
+                onClick={() => setIsCalibrateMode(false)}
+              >
+                Đóng
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.8rem', color: '#78350f', marginBottom: '12px' }}>
+              👉 <strong>Hướng dẫn:</strong> Chọn kho bên dưới ➔ <strong>Chạm / Click vào đúng mái nhà kho</strong> trên ảnh vệ tinh (hoặc kéo ghim) ➔ Bấm <strong>"Lưu Vị Trí Vào Database"</strong>.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', alignItems: 'end' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                  1. Chọn Kho Cần Đặt:
+                </label>
+                <select
+                  value={calibratingWarehouseId}
+                  onChange={(e) => handleSelectCalibratingWh(e.target.value)}
+                  className="form-input"
+                  style={{ fontSize: '0.82rem', padding: '6px 8px' }}
+                >
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id}>
+                      {w.code} - {w.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 700, display: 'block', marginBottom: '4px' }}>
+                  2. Kích thước (Rộng $\times$ Dài mét):
+                </label>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="Rộng (m)"
+                    value={tempWidth}
+                    onChange={(e) => setTempWidth(parseFloat(e.target.value) || 1)}
+                    style={{ fontSize: '0.82rem', padding: '6px 8px' }}
+                  />
+                  <input
+                    type="number"
+                    className="form-input"
+                    placeholder="Dài (m)"
+                    value={tempLength}
+                    onChange={(e) => setTempLength(parseFloat(e.target.value) || 1)}
+                    style={{ fontSize: '0.82rem', padding: '6px 8px' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, padding: '8px 10px', fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                  onClick={() => {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                      setTempGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+                      if (mapInstanceRef.current) {
+                        mapInstanceRef.current.flyTo([pos.coords.latitude, pos.coords.longitude], 19);
+                      }
+                    });
+                  }}
+                  title="Lấy GPS từ vị trí điện thoại bạn đang đứng"
+                >
+                  <Crosshair size={14} /> GPS máy tôi
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ flex: 1.4, padding: '8px 12px', fontSize: '0.82rem', background: '#d97706', borderColor: '#b45309', whiteSpace: 'nowrap' }}
+                  disabled={isSavingGps || !tempGps}
+                  onClick={handleSaveWarehouseGps}
+                >
+                  <Save size={15} /> {isSavingGps ? 'Đang lưu...' : '💾 Lưu Vị Trí'}
+                </button>
+              </div>
+            </div>
+
+            {tempGps && (
+              <div style={{ marginTop: '8px', fontSize: '0.73rem', color: '#92400e' }}>
+                📍 Tọa độ GPS đã ghim: <code>{tempGps.lat.toFixed(6)}, {tempGps.lng.toFixed(6)}</code>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Floating Map Controls */}
         <div className="sat-floating-controls">
           <div className="ctrl-group">

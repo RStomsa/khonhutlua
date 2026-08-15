@@ -79,44 +79,44 @@ const DEFAULT_SEED_WAREHOUSES: Warehouse[] = [
     id: 'a1111111-1111-1111-1111-111111111111',
     code: 'K1',
     name: 'Kho 1 - Kho Lúa Nhựt Chính',
-    width_m: 15.0,
-    length_m: 30.0,
-    gps_lat: 10.776889,
-    gps_lng: 106.700806,
-    color: '#2563eb',
+    width_m: 18.0,
+    length_m: 24.0,
+    gps_lat: 10.777050,
+    gps_lng: 106.700500,
+    color: '#ef4444',
     created_at: new Date().toISOString()
   },
   {
     id: 'a2222222-2222-2222-2222-222222222222',
     code: 'K2',
-    name: 'Kho 2 - Kho Phụ Phía Bắc',
-    width_m: 12.0,
-    length_m: 25.0,
+    name: 'Kho 2 - Kho Phụ Đông Bắc',
+    width_m: 15.0,
+    length_m: 15.0,
     gps_lat: 10.777200,
-    gps_lng: 106.701100,
-    color: '#10b981',
+    gps_lng: 106.701150,
+    color: '#22c55e',
     created_at: new Date().toISOString()
   },
   {
     id: 'a3333333-3333-3333-3333-333333333333',
     code: 'K3',
-    name: 'Kho 3 - Kho Đóng Gói & Xuất Hàng',
-    width_m: 10.0,
-    length_m: 20.0,
-    gps_lat: 10.776600,
-    gps_lng: 106.701400,
-    color: '#f59e0b',
+    name: 'Kho 3 - Kho Đóng Gói Phía Đông',
+    width_m: 12.0,
+    length_m: 16.0,
+    gps_lat: 10.776850,
+    gps_lng: 106.701350,
+    color: '#eab308',
     created_at: new Date().toISOString()
   },
   {
     id: 'a4444444-4444-4444-4444-444444444444',
     code: 'K4',
-    name: 'Kho 4 - Dãy Ngoài Sân Vận Chuyển',
-    width_m: 8.0,
-    length_m: 35.0,
-    gps_lat: 10.776300,
-    gps_lng: 106.700600,
-    color: '#8b5cf6',
+    name: 'Kho 4 - Dãy Dọc Phía Nam',
+    width_m: 12.0,
+    length_m: 20.0,
+    gps_lat: 10.776700,
+    gps_lng: 106.701050,
+    color: '#3b82f6',
     created_at: new Date().toISOString()
   }
 ];
@@ -127,11 +127,11 @@ const DEFAULT_SEED_ZONES: WarehouseZone[] = [
     warehouse_id: 'a1111111-1111-1111-1111-111111111111',
     code: 'KHU_120',
     name: 'Khu 120cm',
-    color: '#3b82f6',
+    color: '#ef4444',
     x_m: 0.0,
     y_m: 0.0,
-    width_m: 5.0,
-    height_m: 10.0,
+    width_m: 18.0,
+    height_m: 4.0,
     created_at: new Date().toISOString()
   },
   {
@@ -139,11 +139,11 @@ const DEFAULT_SEED_ZONES: WarehouseZone[] = [
     warehouse_id: 'a1111111-1111-1111-1111-111111111111',
     code: 'KHU_100',
     name: 'Khu 100cm',
-    color: '#60a5fa',
-    x_m: 5.0,
-    y_m: 0.0,
-    width_m: 5.0,
-    height_m: 10.0,
+    color: '#f87171',
+    x_m: 0.0,
+    y_m: 4.0,
+    width_m: 18.0,
+    height_m: 4.0,
     created_at: new Date().toISOString()
   },
   {
@@ -151,160 +151,65 @@ const DEFAULT_SEED_ZONES: WarehouseZone[] = [
     warehouse_id: 'a1111111-1111-1111-1111-111111111111',
     code: 'KHU_80',
     name: 'Khu 80cm',
-    color: '#93c5fd',
-    x_m: 10.0,
-    y_m: 0.0,
-    width_m: 5.0,
-    height_m: 10.0,
+    color: '#fca5a5',
+    x_m: 0.0,
+    y_m: 8.0,
+    width_m: 18.0,
+    height_m: 4.0,
     created_at: new Date().toISOString()
   }
 ];
 
 const DEFAULT_SEED_LOCATIONS: WarehouseLocation[] = [
-  {
-    id: 'c1111111-1111-1111-1111-000000000a01',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-111111111111',
-    code: 'A01',
-    x_m: 0.0,
-    y_m: 0.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a01',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000a02',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-111111111111',
-    code: 'A02',
-    x_m: 1.5,
-    y_m: 0.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a02',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000a03',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-111111111111',
-    code: 'A03',
-    x_m: 3.0,
-    y_m: 0.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a03',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000b01',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-222222222222',
-    code: 'B01',
-    x_m: 0.0,
-    y_m: 2.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b01',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000b02',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-222222222222',
-    code: 'B02',
-    x_m: 1.5,
-    y_m: 2.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b02',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000b03',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-222222222222',
-    code: 'B03',
-    x_m: 3.0,
-    y_m: 2.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b03',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000c01',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-333333333333',
-    code: 'C01',
-    x_m: 0.0,
-    y_m: 4.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c01',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000c02',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-333333333333',
-    code: 'C02',
-    x_m: 1.5,
-    y_m: 4.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c02',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c1111111-1111-1111-1111-000000000c03',
-    warehouse_id: 'a1111111-1111-1111-1111-111111111111',
-    zone_id: 'b1111111-1111-1111-1111-333333333333',
-    code: 'C03',
-    x_m: 3.0,
-    y_m: 4.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c03',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c2222222-2222-2222-2222-000000000a01',
-    warehouse_id: 'a2222222-2222-2222-2222-222222222222',
-    zone_id: null,
-    code: 'A01',
-    x_m: 0.0,
-    y_m: 0.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a01',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c2222222-2222-2222-2222-000000000a02',
-    warehouse_id: 'a2222222-2222-2222-2222-222222222222',
-    zone_id: null,
-    code: 'A02',
-    x_m: 1.5,
-    y_m: 0.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a02',
-    created_at: new Date().toISOString()
-  },
-  {
-    id: 'c2222222-2222-2222-2222-000000000a03',
-    warehouse_id: 'a2222222-2222-2222-2222-222222222222',
-    zone_id: null,
-    code: 'A03',
-    x_m: 3.0,
-    y_m: 0.0,
-    width_m: 1.5,
-    height_m: 1.5,
-    qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a03',
-    created_at: new Date().toISOString()
-  }
+  // --- KHO K1 (12 Ô) ---
+  { id: 'c1111111-1111-1111-1111-000000000a01', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-111111111111', code: 'A01', x_m: 0.0, y_m: 0.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a01', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000a02', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-111111111111', code: 'A02', x_m: 4.5, y_m: 0.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a02', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000a03', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-111111111111', code: 'A03', x_m: 9.0, y_m: 0.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a03', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000a04', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-111111111111', code: 'A04', x_m: 13.5, y_m: 0.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000a04', created_at: new Date().toISOString() },
+
+  { id: 'c1111111-1111-1111-1111-000000000b01', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-222222222222', code: 'B01', x_m: 0.0, y_m: 4.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b01', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000b02', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-222222222222', code: 'B02', x_m: 4.5, y_m: 4.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b02', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000b03', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-222222222222', code: 'B03', x_m: 9.0, y_m: 4.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b03', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000b04', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-222222222222', code: 'B04', x_m: 13.5, y_m: 4.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000b04', created_at: new Date().toISOString() },
+
+  { id: 'c1111111-1111-1111-1111-000000000c01', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-333333333333', code: 'C01', x_m: 0.0, y_m: 8.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c01', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000c02', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-333333333333', code: 'C02', x_m: 4.5, y_m: 8.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c02', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000c03', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-333333333333', code: 'C03', x_m: 9.0, y_m: 8.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c03', created_at: new Date().toISOString() },
+  { id: 'c1111111-1111-1111-1111-000000000c04', warehouse_id: 'a1111111-1111-1111-1111-111111111111', zone_id: 'b1111111-1111-1111-1111-333333333333', code: 'C04', x_m: 13.5, y_m: 8.0, width_m: 4.5, height_m: 4.0, qr_payload: 'WAREHOUSE_LOCATION:c1111111-1111-1111-1111-000000000c04', created_at: new Date().toISOString() },
+
+  // --- KHO K2 (9 Ô: 3 Cột x 3 Hàng) ---
+  { id: 'c2222222-2222-2222-2222-000000000a01', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'A01', x_m: 0.0, y_m: 0.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a01', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000a02', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'A02', x_m: 5.0, y_m: 0.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a02', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000a03', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'A03', x_m: 10.0, y_m: 0.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000a03', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000b01', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'B01', x_m: 0.0, y_m: 5.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000b01', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000b02', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'B02', x_m: 5.0, y_m: 5.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000b02', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000b03', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'B03', x_m: 10.0, y_m: 5.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000b03', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000c01', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'C01', x_m: 0.0, y_m: 10.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000c01', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000c02', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'C02', x_m: 5.0, y_m: 10.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000c02', created_at: new Date().toISOString() },
+  { id: 'c2222222-2222-2222-2222-000000000c03', warehouse_id: 'a2222222-2222-2222-2222-222222222222', zone_id: null, code: 'C03', x_m: 10.0, y_m: 10.0, width_m: 5.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c2222222-2222-2222-2222-000000000c03', created_at: new Date().toISOString() },
+
+  // --- KHO K3 (4 Ô: 2 Cột x 2 Hàng) ---
+  { id: 'c3333333-3333-3333-3333-000000000a01', warehouse_id: 'a3333333-3333-3333-3333-333333333333', zone_id: null, code: 'A01', x_m: 0.0, y_m: 0.0, width_m: 6.0, height_m: 8.0, qr_payload: 'WAREHOUSE_LOCATION:c3333333-3333-3333-3333-000000000a01', created_at: new Date().toISOString() },
+  { id: 'c3333333-3333-3333-3333-000000000a02', warehouse_id: 'a3333333-3333-3333-3333-333333333333', zone_id: null, code: 'A02', x_m: 6.0, y_m: 0.0, width_m: 6.0, height_m: 8.0, qr_payload: 'WAREHOUSE_LOCATION:c3333333-3333-3333-3333-000000000a02', created_at: new Date().toISOString() },
+  { id: 'c3333333-3333-3333-3333-000000000b01', warehouse_id: 'a3333333-3333-3333-3333-333333333333', zone_id: null, code: 'B01', x_m: 0.0, y_m: 8.0, width_m: 6.0, height_m: 8.0, qr_payload: 'WAREHOUSE_LOCATION:c3333333-3333-3333-3333-000000000b01', created_at: new Date().toISOString() },
+  { id: 'c3333333-3333-3333-3333-000000000b02', warehouse_id: 'a3333333-3333-3333-3333-333333333333', zone_id: null, code: 'B02', x_m: 6.0, y_m: 8.0, width_m: 6.0, height_m: 8.0, qr_payload: 'WAREHOUSE_LOCATION:c3333333-3333-3333-3333-000000000b02', created_at: new Date().toISOString() },
+
+  // --- KHO K4 (12 Ô: 3 Cột x 4 Hàng) ---
+  { id: 'c4444444-4444-4444-4444-000000000a01', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'A01', x_m: 0.0, y_m: 0.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000a01', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000a02', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'A02', x_m: 4.0, y_m: 0.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000a02', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000a03', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'A03', x_m: 8.0, y_m: 0.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000a03', created_at: new Date().toISOString() },
+
+  { id: 'c4444444-4444-4444-4444-000000000b01', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'B01', x_m: 0.0, y_m: 5.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000b01', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000b02', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'B02', x_m: 4.0, y_m: 5.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000b02', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000b03', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'B03', x_m: 8.0, y_m: 5.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000b03', created_at: new Date().toISOString() },
+
+  { id: 'c4444444-4444-4444-4444-000000000c01', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'C01', x_m: 0.0, y_m: 10.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000c01', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000c02', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'C02', x_m: 4.0, y_m: 10.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000c02', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000c03', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'C03', x_m: 8.0, y_m: 10.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000c03', created_at: new Date().toISOString() },
+
+  { id: 'c4444444-4444-4444-4444-000000000d01', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'D01', x_m: 0.0, y_m: 15.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000d01', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000d02', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'D02', x_m: 4.0, y_m: 15.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000d02', created_at: new Date().toISOString() },
+  { id: 'c4444444-4444-4444-4444-000000000d03', warehouse_id: 'a4444444-4444-4444-4444-444444444444', zone_id: null, code: 'D03', x_m: 8.0, y_m: 15.0, width_m: 4.0, height_m: 5.0, qr_payload: 'WAREHOUSE_LOCATION:c4444444-4444-4444-4444-000000000d03', created_at: new Date().toISOString() }
 ];
 
 const DEFAULT_SEED_PRODUCTS: Product[] = [
@@ -490,6 +395,33 @@ export const createWarehouse = async (
     }
   }
   return newWh;
+};
+
+export const updateWarehouse = async (
+  warehouseId: string,
+  updates: Partial<Pick<Warehouse, 'name' | 'width_m' | 'length_m' | 'gps_lat' | 'gps_lng' | 'color'>>
+): Promise<Warehouse | null> => {
+  const current = await idbGetAll<Warehouse>(STORES.WAREHOUSES);
+  const found = current.find(w => w.id === warehouseId);
+  if (!found) return null;
+
+  const updatedWh: Warehouse = {
+    ...found,
+    ...updates
+  };
+
+  await idbPutItem(STORES.WAREHOUSES, updatedWh);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('warehouses').update(updates).eq('id', warehouseId);
+    } catch (e) {
+      console.warn('Supabase update warehouse queued offline:', e);
+      await queueIndexedDbOutbox('update_warehouse', updatedWh);
+    }
+  }
+
+  return updatedWh;
 };
 
 // --- 2. Warehouse Zones APIs ---
@@ -825,6 +757,8 @@ export const syncOfflineQueue = async (): Promise<{ success: boolean; count: num
         });
       } else if (item.action_type === 'create_warehouse') {
         await supabaseClient.from('warehouses').upsert(item.payload);
+      } else if (item.action_type === 'update_warehouse') {
+        await supabaseClient.from('warehouses').update(item.payload).eq('id', item.payload.id);
       } else if (item.action_type === 'create_zone') {
         await supabaseClient.from('warehouse_zones').upsert(item.payload);
       } else if (item.action_type === 'create_location') {

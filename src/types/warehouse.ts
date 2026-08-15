@@ -91,7 +91,7 @@ export interface AuditLog {
 
 export interface SyncAction {
   id: string;
-  action_type: 'execute_movement' | 'create_warehouse' | 'create_zone' | 'create_location';
+  action_type: 'execute_movement' | 'create_warehouse' | 'update_warehouse' | 'create_zone' | 'create_location';
   payload: any;
   status: 'pending' | 'synced' | 'failed';
   error_message?: string;
