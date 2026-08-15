@@ -38,7 +38,9 @@ import {
   clearSupabaseConfig,
   getSupabaseConfig,
   isSupabaseEnabled,
-  initializeSeed
+  initializeSeed,
+  autoBootstrapSupabaseDatabase,
+  subscribeToRealtimeChanges
 } from './lib/database';
 
 import type {
@@ -159,12 +161,24 @@ function App() {
 
   useEffect(() => {
     loadData();
+    autoBootstrapSupabaseDatabase();
+
     // Load saved Supabase configuration inputs
     const config = getSupabaseConfig();
     setSettingsForm({
       url: config.url,
       key: config.key
     });
+
+    // Subscribe to realtime database changes
+    const unsubscribe = subscribeToRealtimeChanges(() => {
+      console.log('⚡ Dữ liệu trên Supabase vừa thay đổi, tự động cập nhật lại...');
+      loadData();
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   // Update theme class on HTML element
@@ -1411,9 +1425,17 @@ function App() {
               </h3>
               
               <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: '16px' }}>
-                Hệ thống mặc định chạy cơ sở dữ liệu ảo tại Local Storage để hoạt động ngay. 
-                Bạn có thể kết nối với dự án Supabase thực để đồng bộ nhiều thiết bị.
+                Hệ thống tự động đọc cấu hình từ file cài đặt <code style={{ color: 'var(--color-primary)' }}>.env</code> (hoặc Vercel Environment Variables) và tự động kết nối, tự động đẩy sơ đồ kho và dữ liệu lên máy chủ.
               </p>
+
+              {getSupabaseConfig().isFromEnv && (
+                <div className="glass-card" style={{ background: 'rgba(16, 185, 129, 0.1)', borderColor: 'var(--color-success)', padding: '10px 14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle className="text-success" size={18} />
+                  <span style={{ fontSize: '0.82rem', color: 'var(--color-success)' }}>
+                    Đã tự động nạp cấu hình kết nối trực tiếp từ file <strong>.env</strong>!
+                  </span>
+                </div>
+              )}
 
               <form onSubmit={handleSaveSettings}>
                 <div className="input-group">

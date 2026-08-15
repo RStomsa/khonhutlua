@@ -161,18 +161,31 @@ const INITIAL_MOVEMENTS: ProductLocationMovement[] = [
   }
 ];
 
-// --- Supabase Settings Cache ---
-let supabaseUrl = localStorage.getItem('supabase_url') || '';
-let supabaseAnonKey = localStorage.getItem('supabase_anon_key') || '';
+// --- Supabase Settings & Auto Environment Detection ---
+const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const envAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+
+let supabaseUrl = localStorage.getItem('supabase_url') || envUrl;
+let supabaseAnonKey = localStorage.getItem('supabase_anon_key') || envAnonKey;
 let supabaseClient: SupabaseClient | null = null;
 
-if (supabaseUrl && supabaseAnonKey) {
-  try {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-  } catch (e) {
-    console.error('Failed to init Supabase client:', e);
+const initSupabase = () => {
+  if (supabaseUrl && supabaseAnonKey) {
+    try {
+      supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: { persistSession: true, autoRefreshToken: true },
+        realtime: { params: { eventsPerSecond: 10 } }
+      });
+    } catch (e) {
+      console.error('Failed to init Supabase client:', e);
+      supabaseClient = null;
+    }
+  } else {
+    supabaseClient = null;
   }
-}
+};
+
+initSupabase();
 
 // --- Local Storage Keys ---
 const LS_KEYS = {
@@ -197,31 +210,60 @@ export const initializeSeed = (force = false) => {
 // Run seed init automatically
 initializeSeed();
 
+// --- Auto Push Seed Data to Supabase if Server Database is Empty ---
+export const autoBootstrapSupabaseDatabase = async () => {
+  if (!supabaseClient) return;
+  try {
+    const { data: existingWh, error } = await supabaseClient
+      .from('warehouses')
+      .select('id')
+      .limit(1);
+
+    if (!error && (!existingWh || existingWh.length === 0)) {
+      console.log('⚡ Máy chủ Supabase chưa có dữ liệu, đang tự động đẩy sơ đồ kho, kệ và sản phẩm mẫu lên...');
+      await supabaseClient.from('warehouses').upsert(INITIAL_WAREHOUSES);
+      await supabaseClient.from('warehouse_locations').upsert(INITIAL_LOCATIONS);
+      await supabaseClient.from('product_current_locations').upsert(INITIAL_PRODUCT_LOCATIONS);
+      await supabaseClient.from('product_location_movements').upsert(INITIAL_MOVEMENTS);
+      console.log('✅ Tự động khởi tạo dữ liệu kho lên Supabase thành công!');
+    }
+  } catch (err) {
+    console.warn('Lỗi kiểm tra dữ liệu Supabase:', err);
+  }
+};
+
+// Auto-bootstrap whenever connected
+if (supabaseClient) {
+  autoBootstrapSupabaseDatabase();
+}
+
 // --- Configuration APIs ---
 export const saveSupabaseConfig = (url: string, key: string) => {
-  localStorage.setItem('supabase_url', url);
-  localStorage.setItem('supabase_anon_key', key);
-  supabaseUrl = url;
-  supabaseAnonKey = key;
-  if (url && key) {
-    supabaseClient = createClient(url, key);
-  } else {
-    supabaseClient = null;
+  const cleanUrl = url.trim();
+  const cleanKey = key.trim();
+  localStorage.setItem('supabase_url', cleanUrl);
+  localStorage.setItem('supabase_anon_key', cleanKey);
+  supabaseUrl = cleanUrl;
+  supabaseAnonKey = cleanKey;
+  initSupabase();
+  if (supabaseClient) {
+    autoBootstrapSupabaseDatabase();
   }
 };
 
 export const clearSupabaseConfig = () => {
   localStorage.removeItem('supabase_url');
   localStorage.removeItem('supabase_anon_key');
-  supabaseUrl = '';
-  supabaseAnonKey = '';
-  supabaseClient = null;
+  supabaseUrl = envUrl;
+  supabaseAnonKey = envAnonKey;
+  initSupabase();
 };
 
 export const getSupabaseConfig = () => {
   return {
     url: supabaseUrl,
     key: supabaseAnonKey,
+    isFromEnv: Boolean(envUrl && envAnonKey && (supabaseUrl === envUrl)),
     isEnabled: !!supabaseClient
   };
 };
@@ -229,6 +271,50 @@ export const getSupabaseConfig = () => {
 export const isSupabaseEnabled = () => {
   return !!supabaseClient;
 };
+
+// --- Realtime Subscription Listener ---
+export const subscribeToRealtimeChanges = (onDataChanged: () => void) => {
+  if (!supabaseClient) return () => {};
+
+  try {
+    const channel = supabaseClient
+      .channel('public-warehouse-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_location_movements' }, () => {
+        onDataChanged();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'product_current_locations' }, () => {
+        onDataChanged();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'warehouses' }, () => {
+        onDataChanged();
+      })
+      .subscribe();
+
+    return () => {
+      if (supabaseClient) {
+        supabaseClient.removeChannel(channel);
+      }
+    };
+  } catch (e) {
+    console.warn('Realtime subscription error:', e);
+    return () => {};
+  }
+};
+
+// Auto Background Network Sync
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    if (supabaseClient) {
+      syncOfflineQueue();
+    }
+  });
+
+  setInterval(() => {
+    if (navigator.onLine && supabaseClient) {
+      syncOfflineQueue();
+    }
+  }, 12000);
+}
 
 // --- Core DB Data APIs ---
 
