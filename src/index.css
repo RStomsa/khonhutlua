@@ -1198,74 +1198,150 @@ body {
   border: none;
 }
 
-.satellite-wh-label {
-  background: rgba(255, 255, 255, 0.96);
+/* Focus Mode Warehouse Banner */
+.focus-warehouse-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: #ffffff;
+  border: 1.5px solid var(--color-primary);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.1);
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.focus-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.focus-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.2);
+}
+
+.focus-banner-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.focus-stat-chip {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
   border-radius: 6px;
-  padding: 4px 8px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
-  pointer-events: none;
-}
-
-.wh-label-title {
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 600;
 }
 
-.wh-label-sub {
+.btn-close-focus {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-close-focus:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Level of Detail (LOD) Warehouse Pill */
+.lod-wh-pill {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #cbd5e1;
+  border-left-width: 4px;
+  border-radius: 6px;
+  padding: 3px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  transition: var(--transition-smooth);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lod-wh-pill.focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.3);
+  transform: scale(1.06);
+}
+
+.lod-wh-pill.dimmed {
+  opacity: 0.35;
+  box-shadow: none;
+}
+
+.pill-name {
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pill-stats {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   color: #475569;
   font-weight: 600;
 }
 
-.wh-fill-badge {
-  color: #fff;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 0.62rem;
+.pill-badge {
+  color: #ffffff;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.6rem;
   font-weight: 700;
 }
 
-.rack-leaflet-marker {
-  background: transparent;
-  border: none;
-}
-
-.rack-marker-inner {
+/* Level of Detail (LOD) Rack Marker */
+.lod-rack-marker {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 4px;
-  padding: 2px 4px;
-  line-height: 1.1;
+  background: transparent;
   pointer-events: none;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-  border: 1px solid #cbd5e1;
 }
 
-.rack-marker-inner.has-item {
-  background: #ecfdf5;
-  border: 1.5px solid #059669;
+.lod-code {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
 }
 
-.rack-marker-inner.has-item .rack-code {
+.lod-rack-marker.occupied .lod-code {
   color: #065f46;
 }
 
-.rack-marker-inner.highlight {
-  background: #fffbeb;
-  border: 2px solid #d97706;
-}
-
-.rack-code {
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: #0f172a;
+.lod-prod {
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 42px;
 }
 
 .rack-prod {
