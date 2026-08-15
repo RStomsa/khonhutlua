@@ -324,7 +324,7 @@ const DEFAULT_SEED_PRODUCTS: Product[] = [
     created_at: new Date().toISOString()
   },
   {
-    id: 'p5004500-0000-0000-0000-000000000004',
+    id: 'f5004500-0000-0000-0000-000000000004',
     product_code: 'p500.45',
     name: 'Ống Profile p500 bản 45mm',
     length_value: 500.0,
@@ -342,7 +342,7 @@ const DEFAULT_SEED_PRODUCTS: Product[] = [
     created_at: new Date().toISOString()
   },
   {
-    id: 'x8888800-0000-0000-0000-000000000006',
+    id: 'f8888800-0000-0000-0000-000000000006',
     product_code: 'x888.88',
     name: 'Thanh Chữ X Series 888',
     length_value: 88.0,
@@ -376,7 +376,7 @@ const DEFAULT_SEED_PRODUCT_LOCATIONS: ProductCurrentLocation[] = [
   },
   {
     id: 'd1111111-0000-0000-0000-000000000004',
-    product_id: 'p5004500-0000-0000-0000-000000000004',
+    product_id: 'f5004500-0000-0000-0000-000000000004',
     location_id: 'c2222222-2222-2222-2222-000000000a01',
     updated_at: new Date().toISOString(),
     updated_by: 'Khanh Admin'
