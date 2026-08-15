@@ -120,8 +120,8 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
   const [isCalibrateMinimized, setIsCalibrateMinimized] = useState(false);
   const [calibratingWarehouseId, setCalibratingWarehouseId] = useState<string>('');
   const [tempGps, setTempGps] = useState<{ lat: number; lng: number } | null>(null);
-  const [tempWidth, setTempWidth] = useState<number>(18.0);
-  const [tempLength, setTempLength] = useState<number>(24.0);
+  const [tempWidth, setTempWidth] = useState<number | string>(18.0);
+  const [tempLength, setTempLength] = useState<number | string>(24.0);
   const [isSavingGps, setIsSavingGps] = useState(false);
   const calibrationLayerRef = useRef<L.LayerGroup | null>(null);
 
@@ -515,8 +515,11 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
     calLayer.clearLayers();
 
     if (isCalibrateMode && tempGps) {
-      const latHalf = metersToLat(tempLength / 2);
-      const lngHalf = metersToLng(tempWidth / 2, tempGps.lat);
+      const numW = Math.max(1, typeof tempWidth === 'number' ? tempWidth : (parseFloat(String(tempWidth)) || 18.0));
+      const numL = Math.max(1, typeof tempLength === 'number' ? tempLength : (parseFloat(String(tempLength)) || 24.0));
+
+      const latHalf = metersToLat(numL / 2);
+      const lngHalf = metersToLng(numW / 2, tempGps.lat);
       const bounds: [[number, number], [number, number]] = [
         [tempGps.lat - latHalf, tempGps.lng - lngHalf],
         [tempGps.lat + latHalf, tempGps.lng + lngHalf]
@@ -550,13 +553,16 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
       alert('Vui lòng chọn kho và chạm vào vị trí trên bản đồ');
       return;
     }
+    const numW = Math.max(1, typeof tempWidth === 'number' ? tempWidth : (parseFloat(String(tempWidth)) || 18.0));
+    const numL = Math.max(1, typeof tempLength === 'number' ? tempLength : (parseFloat(String(tempLength)) || 24.0));
+
     setIsSavingGps(true);
     try {
       const updated = await updateWarehouse(calibratingWarehouseId, {
         gps_lat: tempGps.lat,
         gps_lng: tempGps.lng,
-        width_m: tempWidth,
-        length_m: tempLength
+        width_m: numW,
+        length_m: numL
       });
       if (updated) {
         if (mapInstanceRef.current) {
@@ -813,7 +819,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
                         className="form-input"
                         placeholder="Rộng (m)"
                         value={tempWidth}
-                        onChange={(e) => setTempWidth(parseFloat(e.target.value) || 1)}
+                        onChange={(e) => setTempWidth(e.target.value)}
                         style={{ fontSize: '0.8rem', padding: '5px 6px' }}
                       />
                       <input
@@ -821,7 +827,7 @@ export const WarehouseSatelliteMap: React.FC<WarehouseSatelliteMapProps> = ({
                         className="form-input"
                         placeholder="Dài (m)"
                         value={tempLength}
-                        onChange={(e) => setTempLength(parseFloat(e.target.value) || 1)}
+                        onChange={(e) => setTempLength(e.target.value)}
                         style={{ fontSize: '0.8rem', padding: '5px 6px' }}
                       />
                     </div>

@@ -58,12 +58,12 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
   const [editWhName, setEditWhName] = useState('');
   const [editWhCode, setEditWhCode] = useState('');
   const [editWhColor, setEditWhColor] = useState('#2563eb');
-  const [editWhWidth, setEditWhWidth] = useState(15.0);
-  const [editWhLength, setEditWhLength] = useState(20.0);
+  const [editWhWidth, setEditWhWidth] = useState<number | string>(15.0);
+  const [editWhLength, setEditWhLength] = useState<number | string>(20.0);
 
   // Auto Grid Partition State
-  const [gridCols, setGridCols] = useState(3);
-  const [gridRows, setGridRows] = useState(3);
+  const [gridCols, setGridCols] = useState<number | string>(3);
+  const [gridRows, setGridRows] = useState<number | string>(3);
 
   // Sync edit form with active warehouse
   useEffect(() => {
@@ -113,14 +113,17 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
     e.preventDefault();
     if (!selectedWhId || !editWhName.trim()) return;
 
+    const widthVal = typeof editWhWidth === 'number' ? editWhWidth : (parseFloat(editWhWidth) || 15.0);
+    const lengthVal = typeof editWhLength === 'number' ? editWhLength : (parseFloat(editWhLength) || 20.0);
+
     setIsProcessing(true);
     try {
       await updateWarehouse(selectedWhId, {
         name: editWhName.trim(),
         code: editWhCode.trim().toUpperCase(),
         color: editWhColor,
-        width_m: editWhWidth,
-        length_m: editWhLength
+        width_m: widthVal,
+        length_m: lengthVal
       });
       onDataChanged();
       showMsg(`Đã cập nhật thông tin [${editWhName.trim()}] thành công!`);
@@ -134,14 +137,16 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
   // Handle Auto Repartition Grid
   const handleAutoRepartitionGrid = async () => {
     if (!selectedWhId) return;
-    const totalSlots = gridRows * gridCols;
-    if (!window.confirm(`Bạn có chắc muốn tự động chia lại Kho này thành ${gridRows} hàng × ${gridCols} cột = ${totalSlots} ô không? (Các ô cũ trong kho này sẽ được làm mới)`)) {
+    const numRows = Math.max(1, typeof gridRows === 'number' ? gridRows : (parseInt(String(gridRows), 10) || 1));
+    const numCols = Math.max(1, typeof gridCols === 'number' ? gridCols : (parseInt(String(gridCols), 10) || 1));
+    const totalSlots = numRows * numCols;
+    if (!window.confirm(`Bạn có chắc muốn tự động chia lại Kho này thành ${numRows} hàng × ${numCols} cột = ${totalSlots} ô không? (Các ô cũ trong kho này sẽ được làm mới)`)) {
       return;
     }
 
     setIsProcessing(true);
     try {
-      await repartitionWarehouseGrid(selectedWhId, gridRows, gridCols);
+      await repartitionWarehouseGrid(selectedWhId, numRows, numCols);
       onDataChanged();
       showMsg(`Đã chia lại lưới ${totalSlots} ô cho ${activeWh?.name} thành công!`);
     } catch (err: any) {
@@ -319,7 +324,7 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                     <input
                       type="number"
                       value={editWhWidth}
-                      onChange={(e) => setEditWhWidth(parseFloat(e.target.value) || 1)}
+                      onChange={(e) => setEditWhWidth(e.target.value)}
                       className="form-input"
                     />
                   </div>
@@ -328,7 +333,7 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                     <input
                       type="number"
                       value={editWhLength}
-                      onChange={(e) => setEditWhLength(parseFloat(e.target.value) || 1)}
+                      onChange={(e) => setEditWhLength(e.target.value)}
                       className="form-input"
                     />
                   </div>
@@ -373,9 +378,9 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                   <input
                     type="number"
                     min="1"
-                    max="10"
+                    max="20"
                     value={gridCols}
-                    onChange={(e) => setGridCols(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setGridCols(e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -387,9 +392,9 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
                   <input
                     type="number"
                     min="1"
-                    max="10"
+                    max="20"
                     value={gridRows}
-                    onChange={(e) => setGridRows(parseInt(e.target.value) || 1)}
+                    onChange={(e) => setGridRows(e.target.value)}
                     className="form-input"
                   />
                 </div>
@@ -397,7 +402,7 @@ export const WarehousePartitionManager: React.FC<WarehousePartitionManagerProps>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e40af' }}>
-                  👉 Tổng: <strong>{gridRows * gridCols} ô vị trí</strong> ({gridRows} hàng A.. × {gridCols} cột)
+                  👉 Tổng: <strong>{Math.max(1, parseInt(String(gridRows), 10) || 1) * Math.max(1, parseInt(String(gridCols), 10) || 1)} ô vị trí</strong> ({gridRows || 1} hàng A.. × {gridCols || 1} cột)
                 </span>
                 <button
                   type="button"
